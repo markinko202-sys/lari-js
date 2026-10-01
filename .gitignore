@@ -1,3 +1,4 @@
 .DS_Store
 renders/
 *.blend1
+.vercel
