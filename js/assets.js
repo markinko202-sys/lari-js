@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const FILES = ['characters', 'hats', 'common', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
-const VERSION = '1';
+const FILES = ['characters', 'hats', 'common', 'enemies', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
+const VERSION = '3';
 export const lib = {};
 
 export async function loadAll(onProgress) {
@@ -36,26 +36,33 @@ export function make(name) {
   return p.clone(true);
 }
 
-// Bake a prototype into InstancedMeshes, one per sub-mesh, for many copies at `positions`.
-const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _local = new THREE.Matrix4(), _s = new THREE.Matrix4();
-export function instance(name, positions, parent, { scale = 1, shadows = true } = {}) {
+// Bake a prototype into InstancedMeshes (one per sub-mesh) for many copies. Items are {x, y, z, s?, ry?}.
+// Copies are split into chunks along X so the camera frustum culls everything off screen.
+const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _local = new THREE.Matrix4(), _t = new THREE.Matrix4();
+const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _sc = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+export function instance(name, items, parent, { shadows = true, chunk = 48 } = {}) {
   const proto = lib[name];
-  if (!proto || !positions.length) return;
+  if (!proto || !items.length) return;
   proto.updateMatrixWorld(true);
   _inv.copy(proto.matrixWorld).invert();
-  _s.makeScale(scale, scale, scale);
-  proto.traverse(mesh => {
-    if (!mesh.isMesh) return;
-    _local.multiplyMatrices(_inv, mesh.matrixWorld);
-    const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, positions.length);
-    positions.forEach((p, i) => {
-      _m.makeTranslation(p.x, p.y, p.z).multiply(_s).multiply(_local);
-      im.setMatrixAt(i, _m);
-    });
-    im.castShadow = shadows; im.receiveShadow = true;
-    im.frustumCulled = false;
-    parent.add(im);
-  });
+  const parts = [];
+  proto.traverse(mesh => { if (mesh.isMesh) parts.push({ mesh, local: new THREE.Matrix4().multiplyMatrices(_inv, mesh.matrixWorld) }); });
+  const buckets = new Map();
+  for (const it of items) { const k = Math.floor(it.x / chunk); (buckets.get(k) || buckets.set(k, []).get(k)).push(it); }
+  for (const list of buckets.values()) {
+    for (const { mesh, local } of parts) {
+      const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, list.length);
+      list.forEach((p, i) => {
+        _q.setFromAxisAngle(_up, p.ry || 0); _sc.setScalar(p.s || 1); _v.set(p.x, p.y, p.z);
+        _t.compose(_v, _q, _sc);
+        _m.multiplyMatrices(_t, local);
+        im.setMatrixAt(i, _m);
+      });
+      im.castShadow = shadows; im.receiveShadow = true;
+      im.computeBoundingSphere();
+      parent.add(im);
+    }
+  }
 }
 
 // Duplicate names get suffixed twice over: Blender makes "Head.001" (exported as "Head001") and

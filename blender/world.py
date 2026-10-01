@@ -239,10 +239,9 @@ def kit_volcano(x0):
     P = lambda dx, dy, dz: (x0 + dx, dy, dz)
     ember = mat("vol_ember", "#ff6a1f", emit=6.0)
     basalt = mat("vol_basalt", "#2b2626", rough=0.9)
-    # glowing cracks on the top tiles
+    # glowing seams on the TOP of the cap (not the front face — there they read as road markings)
     top_root = [o for o in out if o.name == "vol_TileTop"][0]
-    for k in range(2):
-        rbox(f"Crack{k}", (random.uniform(0.25, 0.5), 0.03, 0.03), (x0 - 0.2 + k * 0.35, -DEPTH / 2 - 0.01, 0.1 - k * 0.2), ember, top_root)
+    rbox("Seam", (0.5, DEPTH * 0.5, 0.02), (x0 + 0.1, 0.2, 0.505), ember, top_root, rot=(0, 0, math.radians(25)))
 
     r = empty("vol_Platform", P(3, 0, 0)); out.append(r)
     rbox("BasaltSlab", (1.0, DEPTH * 0.7, 0.4), P(3, 0, 0.3), basalt, r, bevel=0.05)

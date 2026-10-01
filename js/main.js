@@ -4,7 +4,7 @@ import { loadAll } from './assets.js';
 import { World } from './world.js';
 import { Rig, Bursts, spawnEntities, makeHeart } from './actors.js';
 import { makeBody, step, overlapsHazard, aabb } from './physics.js';
-import { LEVELS, SKILLS } from './levels.js';
+import { LEVELS, SKILLS, TOPICS } from './levels.js';
 import { LESSONS, pickQuestion, highlight } from './quiz.js';
 import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js';
 import * as audio from './audio.js';
@@ -38,6 +38,14 @@ const keys = { left: false, right: false, jump: false, dash: false };
 const edges = { jump: false, dash: false };
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump',
   ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash', KeyJ: 'dash' };
+// double-tap a direction (keyboard or touch) to dash — the phone has no dash button
+const lastTap = { left: 0, right: 0 };
+function directionDown(k) {
+  if (k !== 'left' && k !== 'right') return;
+  const now = performance.now();
+  if (now - lastTap[k] < 260) edges.dash = true;
+  lastTap[k] = now;
+}
 addEventListener('keydown', e => {
   audio.unlock();
   if ((e.code === 'Escape' || e.code === 'KeyP') && state === 'play') { pause(true); return; }
@@ -45,15 +53,24 @@ addEventListener('keydown', e => {
   const k = KEYMAP[e.code]; if (!k) return;
   if (state === 'play') e.preventDefault();
   if (!keys[k] && (k === 'jump' || k === 'dash')) edges[k] = true;
+  if (!keys[k]) directionDown(k);
   keys[k] = true;
 });
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') pause(true); });
 for (const b of $$('#touch button')) {
   const k = b.dataset.k;
-  const down = e => { e.preventDefault(); audio.unlock(); if (!keys[k] && (k === 'jump' || k === 'dash')) edges[k] = true; keys[k] = true; b.classList.add('press'); };
+  // pointer capture keeps the press alive even if the thumb slides off the button
+  const down = e => {
+    e.preventDefault(); audio.unlock();
+    try { b.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+    if (k === 'jump') edges.jump = true;     // every tap is a fresh jump (double jump needs a 2nd tap)
+    directionDown(k);
+    keys[k] = true; b.classList.add('press');
+  };
   const up = e => { e.preventDefault(); keys[k] = false; b.classList.remove('press'); };
-  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  b.addEventListener('contextmenu', e => e.preventDefault());
 }
 addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
@@ -63,6 +80,7 @@ function show(name) {
   for (const s of $$('.screen')) s.classList.toggle('on', s.dataset.screen === name);
   if (['title', 'levels', 'shop', 'settings', 'about', 'ending'].includes(name)) {
     if (name !== 'settings' && name !== 'about') prevScreen = name;
+    if (name !== 'shop') tryOn = {};
     state = name;
     if (name === 'ending') { enterCity(); }
     else { enterShowroom(); audio.music('menu'); }
@@ -90,11 +108,14 @@ function enterShowroom() {
   const theme = done.includes('forest') ? 'volcano' : done.includes('village') ? 'forest' : 'village';
   stage = w.buildShowroom(theme);
   swapWorld(w);
-  rig = new Rig(profile.equipped.character, profile.equipped.hat, trailColor(), w.scene);
+  const l = look();
+  rig = new Rig(l.character, l.hat, trailColor(l), w.scene);
   rig.root.position.set(0, 0, 0); w.scene.add(rig.root);
 }
-const charKey = () => `${profile.equipped.character}|${profile.equipped.hat}|${profile.equipped.trail}`;
-const trailColor = () => SHOP.trails.find(t => t.id === profile.equipped.trail)?.color || null;
+let tryOn = {};                                   // shop preview, not bought yet
+const look = () => ({ ...profile.equipped, ...(state === 'shop' ? tryOn : {}) });
+const charKey = () => { const l = look(); return `${l.character}|${l.hat}|${l.trail}`; };
+const trailColor = (l = profile.equipped) => SHOP.trails.find(t => t.id === l.trail)?.color || null;
 
 function enterCity() {
   const w = new World(renderer); w.kind = 'city'; w.buildCity(); swapWorld(w);
@@ -150,14 +171,23 @@ function renderShop() {
       action.onclick = () => buy(it, () => { profile.items[it.id]++; });
     } else {
       const owned = profile.owned[shopTab].includes(it.id), eq = profile.equipped[slot] === it.id;
-      if (eq) d.classList.add('sel');
-      d.innerHTML = `<h4>${it.name}</h4>${it.blurb ? `<p>${it.blurb}</p>` : ''}${it.color ? `<span class="swatch" style="background:${it.color}"></span>` : ''}`;
+      const trying = tryOn[slot] === it.id && !eq;
+      d.classList.toggle('sel', eq); d.classList.toggle('trying', trying);
+      d.tabIndex = 0; d.setAttribute('role', 'button');
+      d.innerHTML = `<h4>${it.name}</h4>${it.blurb ? `<p>${it.blurb}</p>` : ''}${it.color ? `<span class="swatch" style="background:${it.color}"></span>` : ''}
+        ${trying ? '<span class="try-tag">Trying on</span>' : (!owned ? '<span class="try-hint">Tap to try on</span>' : '')}`;
+      // tapping the card previews it on the character
+      const preview = () => { if (eq) { delete tryOn[slot]; } else tryOn[slot] = it.id; audio.sfx('click'); refreshShop(); };
+      d.addEventListener('click', e => { if (!e.target.closest('.buy')) preview(); });
+      d.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === d) preview(); });
       action = document.createElement('button');
       if (eq) { action.className = 'buy equipped'; action.textContent = 'Equipped'; }
-      else if (owned) { action.className = 'buy owned'; action.textContent = 'Equip'; action.onclick = () => { profile.equipped[slot] = it.id; save(); audio.sfx('click'); refreshShop(); }; }
+      else if (owned) { action.className = 'buy owned'; action.textContent = 'Equip'; action.onclick = () => { profile.equipped[slot] = it.id; delete tryOn[slot]; save(); audio.sfx('click'); refreshShop(); }; }
       else {
-        action.className = 'buy'; action.innerHTML = `<i class="coin-ic"></i>${it.price}`; action.disabled = profile.coins < it.price;
-        action.onclick = () => buy(it, () => { profile.owned[shopTab].push(it.id); profile.equipped[slot] = it.id; });
+        const short = profile.coins < it.price;
+        action.className = 'buy'; action.innerHTML = short ? `<i class="coin-ic"></i>${it.price} · need ${it.price - profile.coins}` : `Buy <i class="coin-ic"></i>${it.price}`;
+        action.disabled = short;
+        action.onclick = () => buy(it, () => { profile.owned[shopTab].push(it.id); profile.equipped[slot] = it.id; delete tryOn[slot]; });
       }
     }
     d.appendChild(action); grid.appendChild(d);
@@ -171,10 +201,11 @@ function refreshShop() { renderShop(); updateWallet(); enterShowroom(); }
 
 // ------------------------------------------------------------------ settings
 function renderSettings() {
-  $$('#diff-seg button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.diff === profile.difficulty));
+  const seg = $('#diff-seg');
+  seg.innerHTML = DIFFICULTY.map(d => `<button data-diff="${d.id}" aria-pressed="${d.id === profile.difficulty}">${d.name}<small>${d.blurb}</small></button>`).join('');
+  seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { profile.difficulty = +b.dataset.diff; save(); audio.sfx('click'); renderSettings(); }));
   $('#sound-btn').textContent = `Sound: ${profile.sound ? 'on' : 'off'}`;
 }
-$$('#diff-seg button').forEach(b => b.addEventListener('click', () => { profile.difficulty = +b.dataset.diff; save(); audio.sfx('click'); renderSettings(); }));
 $('#sound-btn').addEventListener('click', () => { profile.sound = !profile.sound; save(); audio.setMuted(!profile.sound); renderSettings(); });
 $('#reset-btn').addEventListener('click', () => {
   if (!confirm('Reset all coins, purchases and progress?')) return;
@@ -190,11 +221,21 @@ const game = {    // the interface entities talk to
   collectCoin(x, y, n = 1) { run.coins += n; audio.sfx('coin'); bursts.emit(x, y, '#f2b632', 8, 3, 2); hud(); },
   touchEnemy(en) {
     const b = run.body;
-    if (!aabb(b, en.box)) return;
-    if (b.vy < -1 && b.y > en.box.y + en.box.h * 0.35) {          // stomp from above
-      en.alive = false; b.vy = 10; b.jumpsUsed = 1; run.stomps++;
-      audio.sfx('stomp'); bursts.emit(en.box.x, en.box.y + 0.4, '#c8312b', 12, 4, 3);
-    } else hurt(b.x < en.box.x ? -1 : 1);
+    if (!en.alive || !aabb(b, en.box)) return;
+    if (b.dash > 0 && en.dashable) { kill(en, 'dash'); return; }                        // a dash breaks most enemies
+    const fromAbove = b.vy < -1 && b.y > en.box.y + en.box.h * 0.35;
+    if (fromAbove && en.stompable) {
+      b.vy = 10; b.jumpsUsed = 1; b.coyote = 0;
+      if (en.onStomp && en.onStomp(game)) return;                                      // snail → shell
+      kill(en, 'stomp');
+    } else if (fromAbove && !en.stompable) { hurt(0); b.vy = 9; }                     // spikes on its back
+    else hurt(b.x < en.box.x ? -1 : 1);
+  },
+  shellHits(shell) {
+    for (const en of run.ents) {
+      if (en === shell || !en.alive || !en.box || !en.dashable) continue;
+      if (Math.abs(en.box.x - shell.box.x) < 0.8 && Math.abs(en.box.y - shell.box.y) < 0.8) kill(en, 'shell');
+    }
   },
   spawnHeart(x, y) { const h = makeHeart(x, y); world.scene.add(h.obj); run.ents.push(h); },
   gainHeart() { run.hearts = Math.min(run.maxHearts, run.hearts + 1); audio.sfx('heart'); bursts.emit(run.body.x, run.body.y + 1, '#e2384f', 10, 3, 3); hud(); },
@@ -206,7 +247,7 @@ const game = {    // the interface entities talk to
 function startLevel(i) {
   const def = LEVELS[i];
   const w = new World(renderer); w.kind = 'level';
-  const L = w.build(def);
+  const L = w.build(def, profile.difficulty);
   swapWorld(w);
   bursts = new Bursts(w.scene);
   rig = new Rig(profile.equipped.character, profile.equipped.hat, trailColor(), w.scene);
@@ -224,7 +265,7 @@ function startLevel(i) {
   if (items.shield > 0) { items.shield--; run.shield = true; }
   if (items.magnet > 0) { items.magnet--; run.magnet = true; }
   save();
-  run.ents = spawnEntities(L, w.scene, game);
+  run.ents = spawnEntities(L, w.scene, game, profile.difficulty);
   run.blocks = run.ents.filter(e => e.type === 'block');
   const goal = run.ents.find(e => e.type === 'goal');
   run.goalX = goal ? goal.obj.position.x : L.w;
@@ -234,9 +275,15 @@ function startLevel(i) {
   audio.music(def.music);
   hud();
   const used = [run.maxHearts > 3 && '+1 life', run.shield && 'shield', run.magnet && 'magnet'].filter(Boolean);
-  toast(`${def.sub} · ${def.name}`, used.length ? `power-ups: ${used.join(', ')}` : `Find the code gate to learn ${SKILLS[def.skill].name}`);
+  toast(`${def.sub} · ${def.name} · ${DIFFICULTY[profile.difficulty].name}`, used.length ? `power-ups: ${used.join(', ')}` : `3 code gates ahead — the 2nd one teaches ${SKILLS[def.skill].name}`);
 }
 
+function kill(en, how) {
+  en.alive = false; run.stomps++;
+  audio.sfx('stomp');
+  bursts.emit(en.box.x, en.box.y + 0.4, how === 'dash' ? '#4ff0c8' : '#c8312b', 12, 4, 3);
+  if (how !== 'stomp') { run.coins++; hud(); }
+}
 function hurt(dir) {
   const b = run.body;
   if (run.invuln > 0 || run.dead > 0) return;
@@ -309,15 +356,17 @@ function pause(on) {
 // ------------------------------------------------------------------ code gates
 let quizTimer = null;
 function openGate(gate) {
-  if (profile.skills[gate.skill]) {
-    gate.openGate(game); audio.sfx('gate'); toast('Already compiled ✓', `${SKILLS[gate.skill].power} is yours`);
+  const topic = gate.topic;
+  if (profile.skills[topic]) {
+    gate.openGate(game); audio.sfx('gate');
+    toast('Already compiled ✓', gate.power ? `${SKILLS[topic].power} is yours` : `you know ${TOPICS[topic]}`);
     return;
   }
   state = 'quiz'; audio.duck(true);
   for (const k in keys) keys[k] = false;
-  const les = LESSONS[gate.skill], d = DIFFICULTY[run.difficulty];
-  const q = pickQuestion(gate.skill, run.difficulty);
-  $('#quiz-kicker').textContent = `Code gate · ${SKILLS[gate.skill].name}`;
+  const les = LESSONS[topic], d = DIFFICULTY[run.difficulty];
+  const q = pickQuestion(topic, run.difficulty);
+  $('#quiz-kicker').textContent = gate.power ? `Power gate · ${SKILLS[topic].name}` : `Code gate · ${TOPICS[topic]}`;
   $('#quiz-title').textContent = les.title;
   $('#quiz-body').innerHTML = les.body;
   $('#quiz-code').innerHTML = highlight(les.code);
@@ -361,15 +410,19 @@ function answer(ok, btn, gate, timeout = false) {
   if (ok) {
     clearInterval(quizTimer);
     btn.classList.add('right'); $$('#quiz-options button').forEach(b => (b.disabled = true));
-    profile.skills[gate.skill] = true; save();
+    const topic = gate.topic;
+    profile.skills[topic] = true; save();
     audio.sfx('correct');
     feedback('✓ Compiled! Gate opening…', 'good');
-    const p = document.createElement('p'); p.className = 'power'; p.textContent = `New power — ${LESSONS[gate.skill].power}`;
+    const p = document.createElement('p'); p.className = 'power';
+    p.textContent = gate.power ? `New power — ${LESSONS[topic].power}` : `Learned: ${TOPICS[topic]} (+10 coins)`;
+    if (!gate.power) { run.coins += 10; hud(); }
     $('#quiz-feedback').after(p);
     setTimeout(() => {
       p.remove(); $('#quiz').hidden = true; audio.duck(false);
       gate.openGate(game); audio.sfx('gate'); state = 'play'; hud();
-      toast(`${SKILLS[gate.skill].power} unlocked`, SKILLS[gate.skill].key);
+      if (gate.power) toast(`${SKILLS[topic].power} unlocked`, SKILLS[topic].key);
+      else toast('Gate compiled', `you learned ${TOPICS[topic]}`);
       bursts.emit(gate.obj.position.x, gate.obj.position.y + 1.5, '#4ff0c8', 30, 6, 3);
     }, 1400);
     return;
@@ -408,7 +461,7 @@ function updateCamera(dt) {
     camState.look += ((b.facing * 2.2) - camState.look) * (1 - Math.exp(-2.5 * dt));
     const portraitCam = camera.aspect < 1;
     camState.x += (Math.max(portraitCam ? 3.5 : 7, b.x + camState.look * (portraitCam ? 0.5 : 1)) - camState.x) * t;   // never show the void left of the start
-    const ty = Math.max(3.2, b.y + 1.6);
+    const ty = Math.max(3.4, b.y + 2.1);   // keep more sky than dirt above the player
     camState.y += (ty - camState.y) * (1 - Math.exp(-3 * dt));
     const portrait = camera.aspect < 1;
     camera.position.set(camState.x, camState.y + 2.2, portrait ? 15 : 15.5);
@@ -478,15 +531,30 @@ function tick(dt) {
   run.invuln = Math.max(0, run.invuln - dt);
   rig.setInvulnerable(run.invuln > 0, elapsed);
 
-  for (const e of run.ents) e.update(dt, elapsed, game);
-  if (b.y < -3 || overlapsHazard(b, world.grid)) fallDeath();
+  // only things near the player think and draw — long levels stay cheap on phones
+  for (const e of run.ents) {
+    const ex = e.obj.position.x || e.x0 || 0;
+    const near = Math.abs(ex - b.x) < 26 || e.sliding;
+    if (e.obj.visible !== near && e.alive !== false && !e.open) e.obj.visible = near;
+    if (near || e.type === 'gate') e.update(dt, elapsed, game);
+  }
+  const hz = overlapsHazard(b, world.grid);
+  if (b.y < -3 || hz === 'lava') fallDeath();
+  else if (hz === 'spike') { hurt(0); b.vy = 11; b.onGround = false; }
 
   rig.update(dt, elapsed, b);
   $('#hud-progress').style.width = `${Math.min(100, (b.x / run.goalX) * 100)}%`;
 }
 
 // ------------------------------------------------------------------ debug handle (?debug) for automated checks
-if (location.search.includes('debug')) window.__lari = { get run() { return run; }, get state() { return state; }, startLevel, profile, show };
+if (location.search.includes('debug')) window.__lari = {
+  get run() { return run; }, get state() { return state; }, get world() { return world; }, startLevel, profile, show,
+  // teleport onto the highest standable surface at column x
+  tp(x) {
+    const g = world.grid, b = run.body; x = Math.floor(x);
+    for (let y = g.h - 1; y > 0; y--) { const c = g.cells[(y - 1) * g.w + x], up = g.cells[y * g.w + x]; if ([1, 2, 3, 4, 7].includes(c) && !up) { Object.assign(b, { x: x + 0.5, y, vx: 0, vy: 0 }); return y; } }
+  },
+};
 
 // ------------------------------------------------------------------ boot
 (async () => {

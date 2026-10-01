@@ -5,7 +5,8 @@ export const P = {
   width: 0.62, height: 1.42,
   accel: 60, airAccel: 38, friction: 48, maxSpeed: 7.2,
   gravity: 34, maxFall: 18,
-  jumpV: 12.4, doubleJumpV: 11.2, jumpCut: 0.45,       // releasing jump early cuts the rise
+  jumpV: 12.4, doubleJumpV: 12.0, jumpCut: 0.55,       // releasing jump early cuts the rise…
+  minJumpTime: 0.16,                                   // …but never before this, so a quick tap is still a real jump
   coyote: 0.1, buffer: 0.12,
   dashSpeed: 17, dashTime: 0.19, dashCooldown: 0.45,
   glideFall: 2.2,
@@ -14,8 +15,8 @@ export const P = {
 };
 
 // tile codes
-export const T = { EMPTY: 0, GROUND: 1, PLATFORM: 2, BLOCK: 3, USED: 4, HAZARD: 5, BARRIER: 6 };
-export const solid = c => c === T.GROUND || c === T.PLATFORM || c === T.BLOCK || c === T.USED || c === T.BARRIER;
+export const T = { EMPTY: 0, GROUND: 1, PLATFORM: 2, BLOCK: 3, USED: 4, HAZARD: 5, BARRIER: 6, BRICK: 7, SPIKE: 8 };
+export const solid = c => c === T.GROUND || c === T.PLATFORM || c === T.BLOCK || c === T.USED || c === T.BARRIER || c === T.BRICK;
 
 export function makeBody(x, y) {
   return {
@@ -60,13 +61,14 @@ export function step(b, input, grid, skills, dt) {
 
     // jumping
     if (b.buffer > 0) {
-      if (b.onGround || b.coyote > 0) {
-        b.vy = P.jumpV; b.jumpsUsed = 1; b.buffer = 0; b.coyote = 0; b.onGround = false; b.jumped = 'jump';
-      } else if (skills.double && b.jumpsUsed < 2) {
-        b.vy = P.doubleJumpV; b.jumpsUsed = 2; b.buffer = 0; b.jumped = 'double';
+      if ((b.onGround || b.coyote > 0) && b.vy < P.jumpV * 0.5) {   // never cut short a spring / stomp launch
+        b.vy = P.jumpV; b.jumpsUsed = 1; b.buffer = 0; b.coyote = 0; b.onGround = false; b.jumped = 'jump'; b.jumpT = 0;
+      } else if (skills.double && b.jumpsUsed < 2 && !b.onGround) {
+        b.vy = Math.max(b.vy, P.doubleJumpV); b.jumpsUsed = 2; b.buffer = 0; b.jumped = 'double'; b.jumpT = 0;
       }
     }
-    if (!input.jump && b.vy > 0 && !b.springing) b.vy *= Math.pow(P.jumpCut, dt * 10);  // variable height
+    b.jumpT = (b.jumpT || 0) + dt;
+    if (!input.jump && b.vy > 0 && !b.springing && b.jumpT > P.minJumpTime) b.vy *= Math.pow(P.jumpCut, dt * 10);  // variable height
 
     // gravity / glide
     b.vy -= P.gravity * dt;
@@ -124,11 +126,16 @@ function moveY(b, dy, grid) {
   }
 }
 
+// what deadly / painful tiles the body is touching: 'lava' kills, 'spike' hurts
 export function overlapsHazard(b, grid) {
   const x0 = Math.floor(b.x - b.w / 2 + 0.1), x1 = Math.floor(b.x + b.w / 2 - 0.1);
   const y0 = Math.floor(b.y + 0.05), y1 = Math.floor(b.y + b.h * 0.5);
-  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (cell(grid, x, y) === T.HAZARD) return true;
-  return false;
+  let hit = null;
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (cell(grid, x, y) === T.HAZARD) return 'lava';
+  // spikes: a forgiving hitbox — only the feet, and only well inside the tile (grazing an edge is fine)
+  const sx0 = Math.floor(b.x - b.w / 2 + 0.25), sx1 = Math.floor(b.x + b.w / 2 - 0.25), sy = Math.floor(b.y + 0.05);
+  for (let x = sx0; x <= sx1; x++) if (cell(grid, x, sy) === T.SPIKE && b.y < sy + 0.4) hit = 'spike';
+  return hit;
 }
 
 export function aabb(a, b) {

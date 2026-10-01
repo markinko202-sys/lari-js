@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/game.css?v=1">
+<link rel="stylesheet" href="css/game.css?v=2">
 <script type="importmap">
   { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
@@ -43,7 +43,7 @@
     </div>
     <p class="wallet"><i class="coin-ic"></i><b class="coins-val">0</b></p>
   </div>
-  <p class="hint-keys mono">← → move · Space jump · Shift dash</p>
+  <p class="hint-keys mono">← → move · Space jump · Shift (or double-tap ← →) dash</p>
 </section>
 
 <!-- level select -->
@@ -80,11 +80,7 @@
   <div class="panel">
     <h2>Settings</h2>
     <p class="label">Difficulty</p>
-    <div class="seg" id="diff-seg">
-      <button data-diff="0">Easy<small>3 answers · slow bugs</small></button>
-      <button data-diff="1">Normal<small>×1.5 coins</small></button>
-      <button data-diff="2">Hard<small>×2 coins · timed gates · wrong answer costs a life</small></button>
-    </div>
+    <div class="seg" id="diff-seg"></div>
     <p class="label">Sound</p>
     <button class="btn small" id="sound-btn">Sound: on</button>
     <p class="label">Progress</p>
@@ -131,7 +127,7 @@
   <div class="toast" id="toast" role="status"></div>
   <div class="touch" id="touch" aria-hidden="true">
     <div class="pad-l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
-    <div class="pad-r"><button data-k="dash" class="dash">⇥</button><button data-k="jump" class="jump">▲</button></div>
+    <div class="pad-r"><button data-k="jump" class="jump" aria-label="Jump">▲</button></div>
   </div>
 </section>
 
@@ -209,6 +205,6 @@
   </div>
 </section>
 
-<script type="module" src="js/main.js?v=1"></script>
+<script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>

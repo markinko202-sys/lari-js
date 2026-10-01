@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { make, instance, lib } from './assets.js';
 import { T } from './physics.js';
+import { buildLevel } from './levels.js';
 
 export const THEMES = {
   village: {
@@ -173,14 +174,14 @@ export class World {
     s.add(this.motes.points);
   }
 
-  build(level) {
-    const L = level.build();
+  build(level, difficulty = 1) {
+    const L = buildLevel(level, difficulty);
     this.grid = { w: L.w, h: L.h, cells: L.cells };
     this.level = L;
     this.setupTheme(level.theme, L.w);
     const t = this.theme, g = new THREE.Group(); this.scene.add(g);
 
-    const tops = [], fills = [], planks = [];
+    const tops = [], fills = [], planks = [], bricks = [], spikes = [], deep = [];
     for (let x = 0; x < L.w; x++) for (let y = 0; y < L.h; y++) {
       const c = L.cells[y * L.w + x];
       const p = { x: x + 0.5, y: y + 0.5, z: 0 };
@@ -188,14 +189,17 @@ export class World {
         const above = y + 1 < L.h ? L.cells[(y + 1) * L.w + x] : 0;
         (above === T.GROUND ? fills : tops).push(p);
       } else if (c === T.PLATFORM) planks.push(p);
+      else if (c === T.BRICK) bricks.push(p);
+      else if (c === T.SPIKE) spikes.push(p);
     }
+    // carry each ground column down out of view so terrain reads as solid earth and pits stay pits
+    for (let x = 0; x < L.w; x++) if (L.cells[x] === T.GROUND) for (let y = -1; y >= -7; y--) deep.push({ x: x + 0.5, y: y + 0.5, z: 0 });
     instance(`${t.tile}_TileTop`, tops, g);
     instance(`${t.tile}_TileFill`, fills, g, { shadows: false });
-    instance(t.plank, planks, g);
-    // carry each ground column down out of view so terrain reads as solid earth and pits stay pits
-    const deep = [];
-    for (let x = 0; x < L.w; x++) if (L.cells[x] === T.GROUND) for (let y = -1; y >= -7; y--) deep.push({ x: x + 0.5, y: y + 0.5, z: 0 });
     instance(`${t.tile}_TileFill`, deep, g, { shadows: false });
+    instance(t.plank, planks, g);
+    instance(L.theme.cube, bricks, g);
+    instance('Spikes', spikes, g);
 
     // lava: one animated strip per run of hazard cells
     this.lava = null;
@@ -208,37 +212,17 @@ export class World {
       for (const r of runs) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, 2.4, 1, 1), this.lava);
         m.rotation.x = -Math.PI / 2; m.position.set((r.x0 + r.x1) / 2, 0.55, 0); g.add(m);
-        const glow = new THREE.PointLight('#ff6a1f', 6, 9, 1.6); glow.position.set((r.x0 + r.x1) / 2, 1.8, 1); g.add(glow);
       }
     }
 
-    // decor (non-colliding scenery)
-    for (const d of L.decor) {
-      const o = make(d.kind);
-      o.position.set(d.x + 0.5, d.y, d.z); o.scale.setScalar(d.s); o.rotation.y = d.ry;
-      if (d.kind.includes('Mountain')) o.traverse(m => { if (m.isMesh) m.castShadow = false; });
-      g.add(o);
-    }
-    // scattered filler scenery behind the play lane, deterministic per level
-    const fillers = { village: ['vil_Bush', 'vil_Palm', 'vil_Fence'], forest: ['for_Fern', 'for_Tree', 'for_Rock', 'for_Mushroom'], volcano: ['vol_Spike', 'vol_Crystal', 'vol_DeadTree'] }[level.theme] || [];
-    let seed = 7;
-    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let x = 4; x < L.w - 4; x += 3 + Math.floor(rnd() * 4)) {
-      let top = -1;
-      for (let y = L.h - 1; y >= 0; y--) if (L.cells[y * L.w + x] === T.GROUND) { top = y + 1; break; }
-      if (top < 0) continue;
-      const kind = fillers[Math.floor(rnd() * fillers.length)];
-      const o = make(kind);
-      const far = kind.includes('Tree') || kind.includes('Palm');
-      o.position.set(x + 0.5, top, far ? -4 - rnd() * 3 : -1.35 - rnd() * 0.4);
-      o.scale.setScalar(far ? 0.9 + rnd() * 0.5 : 0.7 + rnd() * 0.5); o.rotation.y = rnd() * 0.8 - 0.4;
-      g.add(o);
-    }
+    // background scenery, instanced per kind
+    const byKind = {};
+    for (const d of L.decor) (byKind[d.kind] ||= []).push({ x: d.x + 0.5, y: d.y, z: d.z, s: d.s, ry: d.ry });
+    for (const [kind, items] of Object.entries(byKind)) instance(kind, items, g, { shadows: !/House|Tree|Palm/.test(kind) });
     if (level.theme === 'volcano') {
-      for (let i = 0; i < 6; i++) {
-        const v = make('vol_Mountain'); v.position.set(i * 40 + 10, -6, -45 - (i % 2) * 15); v.scale.setScalar(2.4 + (i % 3) * 0.5);
-        v.traverse(m => { if (m.isMesh) m.castShadow = false; }); g.add(v);
-      }
+      const far = [];
+      for (let x = 10; x < L.w; x += 45) far.push({ x, y: -6, z: -45 - ((x / 45) % 2) * 15, s: 2.4 + ((x / 45) % 3) * 0.5 });
+      instance('vol_Mountain', far, g, { shadows: false, chunk: 200 });
     }
     return L;
   }

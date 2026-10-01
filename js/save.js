@@ -63,7 +63,8 @@ function merge(base, over) {
 }
 
 export const DIFFICULTY = [
-  { id: 0, name: 'Easy',   bugSpeed: 0.7, coinMult: 1,   quizChoices: 3, wrongCostsLife: false, timer: 0 },
-  { id: 1, name: 'Normal', bugSpeed: 1.0, coinMult: 1.5, quizChoices: 4, wrongCostsLife: false, timer: 0 },
-  { id: 2, name: 'Hard',   bugSpeed: 1.4, coinMult: 2,   quizChoices: 4, wrongCostsLife: true,  timer: 25 },
+  { id: 0, name: 'Easy',      blurb: 'narrow gaps · few bugs · 3 answers',            bugSpeed: 0.7, coinMult: 1,   quizChoices: 3, wrongCostsLife: false, timer: 0 },
+  { id: 1, name: 'Normal',    blurb: '×1.5 coins',                                     bugSpeed: 1.0, coinMult: 1.5, quizChoices: 4, wrongCostsLife: false, timer: 0 },
+  { id: 2, name: 'Hard',      blurb: '×2 coins · more bugs · timed gates',             bugSpeed: 1.3, coinMult: 2,   quizChoices: 4, wrongCostsLife: true,  timer: 30 },
+  { id: 3, name: 'Very hard', blurb: '×3 coins · bug swarms · far checkpoints · 15 s', bugSpeed: 1.6, coinMult: 3,   quizChoices: 4, wrongCostsLife: true,  timer: 15 },
 ];

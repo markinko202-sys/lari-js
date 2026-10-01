@@ -133,14 +133,63 @@ export class Bursts {
 }
 
 // ------------------------------------------------------------------ level entities
-// Each entity: { obj, box:{x,y,w,h}, update(dt,t,game) } — `game` exposes player body, grid, events.
-export function spawnEntities(level, scene, game) {
+// Each entity: { type, obj, x, update(dt, t, game) }. Enemies also carry box / stompable / dashable.
+export function spawnEntities(level, scene, game, difficulty) {
   const list = [];
   for (const e of level.ents) {
+    if (e.min !== undefined && e.min > difficulty) continue;
     const f = FACTORY[e.type];
-    if (f) { const ent = f(e, game); if (ent) { scene.add(ent.obj); list.push(ent); } }
+    if (!f) continue;
+    const ent = f(e, game);
+    if (!ent) continue;
+    ent.x0 = e.x ?? 0;
+    scene.add(ent.obj); list.push(ent);
   }
   return list;
+}
+
+const tinted = (obj, hex, emissive = 0) => {
+  obj.traverse(o => {
+    if (!o.isMesh || !/shell|Shell|BatBody|bat_fur|bat_wing|Wing/.test(o.material.name + o.name)) return;
+    o.material = o.material.clone(); o.material.color.set(hex);
+    if (emissive) { o.material.emissive = new THREE.Color(hex); o.material.emissiveIntensity = emissive; }
+  });
+  return obj;
+};
+const cellAt = (g, x, y) => (x < 0 || x >= g.grid.w || y < 0 || y >= g.grid.h ? 0 : g.grid.cells[y * g.grid.w + x]);
+const isSolid = c => c === T.GROUND || c === T.BRICK || c === T.BLOCK || c === T.USED || c === T.BARRIER || c === T.PLATFORM;
+
+// a walker that patrols its range, turning at walls, spikes and ledges
+function walkerMove(en, dt, g, speed) {
+  en.x += en.dir * speed * dt;
+  const ahead = Math.floor(en.x + en.dir * 0.5), at = Math.floor(en.y + 0.3), below = Math.floor(en.y - 0.5);
+  const wall = isSolid(cellAt(g, ahead, at)) || cellAt(g, ahead, at) === T.SPIKE;
+  const ledge = below >= 0 && !isSolid(cellAt(g, ahead, below));
+  if (en.x < en.xmin || en.x > en.xmax || wall || ledge) { en.dir *= -1; en.x += en.dir * speed * dt * 2; }
+}
+function dying(en, dt) {
+  en.squish += dt;
+  en.obj.scale.set(en.s * (1 + en.squish), en.s * Math.max(0.05, 1 - en.squish * 4), en.s);
+  if (en.squish > 0.45) en.obj.visible = false;
+}
+
+function walker(model, e, opts = {}) {
+  const obj = make(model); const s = opts.scale || 0.95; obj.scale.setScalar(s);
+  if (opts.tint) tinted(obj, opts.tint);
+  const legs = []; obj.traverse(o => { if (/Leg[LR]?\d*$|BugLeg/.test(o.name) && !o.isMesh) legs.push(o); });
+  return {
+    type: opts.type || 'bug', obj, s, x: e.x, y: e.y, xmin: e.x - (e.range ?? 3), xmax: e.x + (e.range ?? 3), dir: -1, alive: true, squish: 0,
+    stompable: opts.stompable ?? true, dashable: true, box: { x: e.x, y: e.y, w: opts.w || 0.85, h: opts.h || 0.6 },
+    update(dt, t, g) {
+      if (!this.alive) return dying(this, dt);
+      walkerMove(this, dt, g, (opts.speed || 1.6) * g.diff.bugSpeed);
+      this.obj.position.set(this.x, this.y, 0);
+      this.obj.rotation.y = this.dir > 0 ? -0.4 : Math.PI + 0.4;
+      legs.forEach((l, i) => { l.rotation.y = Math.sin(t * 18 + i * 1.7) * 0.4; });
+      this.box.x = this.x; this.box.y = this.y;
+      g.touchEnemy(this);
+    },
+  };
 }
 
 const FACTORY = {
@@ -159,51 +208,53 @@ const FACTORY = {
         const pb = g.body;
         if (g.magnet) {
           const dx = pb.x - this.obj.position.x, dy = pb.y + 0.7 - this.obj.position.y, d = Math.hypot(dx, dy);
-          if (d < 5) { this.obj.position.x += dx / d * dt * 12; e.y += dy / d * dt * 12; this.box.x = this.obj.position.x; this.box.y = e.y - 0.35; }
+          if (d < 5 && d > 0.01) { this.obj.position.x += dx / d * dt * 12; e.y += dy / d * dt * 12; this.box.x = this.obj.position.x; this.box.y = e.y - 0.35; }
         }
         if (aabb(pb, this.box)) { this.alive = false; g.collectCoin(this.obj.position.x, this.obj.position.y); }
       },
     };
   },
 
-  bug(e, g) {
-    const obj = make('Bug'); obj.scale.setScalar(0.95);
-    const legs = []; obj.traverse(o => { if (o.name.startsWith('BugLeg') && !o.name.includes('Mesh')) legs.push(o); });
-    return {
-      type: 'bug', obj, x: e.x, y: e.y, x0: e.x - e.range, x1: e.x + e.range, dir: -1, alive: true, squish: 0,
-      box: { x: e.x, y: e.y, w: 0.85, h: 0.6 },
-      update(dt, t, g) {
-        if (!this.alive) {
-          this.squish += dt;
-          this.obj.scale.set(0.95 * (1 + this.squish), 0.95 * Math.max(0.05, 1 - this.squish * 4), 0.95);
-          if (this.squish > 0.5) this.obj.visible = false;
-          return;
-        }
-        const sp = 1.6 * g.diff.bugSpeed;
-        this.x += this.dir * sp * dt;
-        // turn at the patrol ends, walls and ledges
-        const ahead = Math.floor(this.x + this.dir * 0.5), below = Math.floor(this.y - 0.5), at = Math.floor(this.y + 0.3);
-        const cell = (x, y) => g.grid.cells[y * g.grid.w + x];
-        if (this.x < this.x0 || this.x > this.x1 || cell(ahead, at) === T.GROUND || cell(ahead, at) === T.BARRIER || (below >= 0 && !cell(ahead, below))) {
-          this.dir *= -1; this.x += this.dir * sp * dt * 2;
-        }
-        this.obj.position.set(this.x, this.y, 0);
+  bug: e => walker('Bug', e, { type: 'bug' }),
+  beetle: e => walker('Bug', e, { type: 'beetle', tint: '#3f8f4a', speed: 1.9 }),
+  crab: e => walker('MagmaCrab', e, { type: 'crab', stompable: false, speed: 1.3, scale: 1.0, w: 1.0, h: 0.8 }),
+
+  // kampung chicken: patrols, then charges when it spots you
+  ayam(e) {
+    const en = walker('Ayam', e, { type: 'ayam', speed: 1.2, scale: 1.0, w: 0.8, h: 0.9 });
+    const head = byName(en.obj, 'AyamHead'), base = en.update;
+    en.charge = 0; en.cool = 0;
+    en.update = function (dt, t, g) {
+      if (!this.alive) return dying(this, dt);
+      const b = g.body, dx = b.x - this.x;
+      this.cool = Math.max(0, this.cool - dt);
+      if (this.charge <= 0 && this.cool === 0 && Math.abs(dx) < 7 && Math.abs(b.y - this.y) < 1.5 && Math.sign(dx) === this.dir) { this.charge = 1.3; g.sfx('bump'); }
+      if (this.charge > 0) {
+        this.charge -= dt; if (this.charge <= 0) this.cool = 1.5;
+        walkerMove(this, dt, g, 4.6 * g.diff.bugSpeed);
+        this.obj.position.set(this.x, this.y + Math.abs(Math.sin(t * 22)) * 0.08, 0);
         this.obj.rotation.y = this.dir > 0 ? -0.4 : Math.PI + 0.4;
-        legs.forEach((l, i) => { l.rotation.y = Math.sin(t * 18 + i * 1.7) * 0.4; });
-        this.box.x = this.x; this.box.y = this.y;
-        g.touchEnemy(this);
-      },
+        if (head) head.rotation.z = -0.5;
+        this.box.x = this.x; this.box.y = this.y; g.touchEnemy(this);
+        return;
+      }
+      if (head) head.rotation.z = Math.sin(t * 6) * 0.25;
+      base.call(this, dt, t, g);
     };
+    return en;
   },
 
+  // bats hover, then swoop at you
+  bat: e => flyer('Kelawar', e, null),
+  firebat: e => flyer('Kelawar', e, '#ff5a1f'),
   fly(e) {
     const obj = make('FlyBug'); obj.scale.setScalar(1.1);
     const wings = [byName(obj, 'WingL'), byName(obj, 'WingR')];
     return {
-      type: 'fly', obj, alive: true, squish: 0, box: { x: e.x, y: e.y - 0.3, w: 0.7, h: 0.6 },
+      type: 'fly', obj, s: 1.1, alive: true, squish: 0, stompable: true, dashable: true, box: { x: e.x, y: e.y - 0.3, w: 0.7, h: 0.6 },
       update(dt, t, g) {
         if (!this.alive) { this.squish += dt; this.obj.position.y -= dt * 6; this.obj.rotation.z += dt * 8; if (this.squish > 0.8) this.obj.visible = false; return; }
-        const k = Math.sin(t * 1.4 + e.x);
+        const k = Math.sin(t * 1.4 * g.diff.bugSpeed + e.x);
         const x = e.axis === 'x' ? e.x + k * e.range : e.x, y = e.axis === 'y' ? e.y + k * e.range : e.y;
         this.obj.position.set(x, y, 0);
         this.obj.rotation.y = g.body.x > x ? -0.4 : Math.PI + 0.4;
@@ -214,17 +265,102 @@ const FACTORY = {
     };
   },
 
+  // forest spider: waits up high, drops on its thread when you pass underneath
+  spider(e) {
+    const obj = make('Spider'); obj.scale.setScalar(0.9);
+    const thread = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#e9e2d2', transparent: true, opacity: 0.6 }));
+    const group = new THREE.Group(); group.add(obj, thread);
+    const top = e.y, bottom = e.y - e.drop;
+    return {
+      type: 'spider', obj: group, s: 0.9, alive: true, squish: 0, stompable: true, dashable: true, y: top, state: 'wait', timer: 0,
+      box: { x: e.x, y: top - 0.4, w: 0.8, h: 0.7 },
+      update(dt, t, g) {
+        if (!this.alive) { this.squish += dt; obj.position.y -= dt * 8; obj.rotation.z += dt * 10; thread.visible = false; if (this.squish > 0.8) group.visible = false; return; }
+        const b = g.body;
+        if (this.state === 'wait' && Math.abs(b.x - e.x) < 2.6 && b.y < top) { this.state = 'drop'; g.sfx('bump'); }
+        if (this.state === 'drop') { this.y = Math.max(bottom + 0.5, this.y - dt * 9); if (this.y <= bottom + 0.5) { this.state = 'hold'; this.timer = 1.4; } }
+        else if (this.state === 'hold') { this.timer -= dt; if (this.timer <= 0) this.state = 'up'; }
+        else if (this.state === 'up') { this.y = Math.min(top, this.y + dt * 2.5); if (this.y >= top) this.state = 'wait'; }
+        const sway = this.state === 'wait' ? Math.sin(t * 2) * 0.1 : 0;
+        obj.position.set(e.x + sway, this.y, 0);
+        obj.rotation.y = -Math.PI / 2;
+        const p = thread.geometry.attributes.position; p.setXYZ(0, e.x, top + 6, 0); p.setXYZ(1, e.x + sway, this.y + 0.2, 0); p.needsUpdate = true;
+        this.box.x = e.x; this.box.y = this.y - 0.4;
+        g.touchEnemy(this);
+      },
+    };
+  },
+
+  // snail: stomp it and it hides; touch the shell to kick it — a sliding shell clears other enemies
+  siput(e) {
+    const obj = make('Siput'); obj.scale.setScalar(0.95);
+    const body = byName(obj, 'SiputBody');
+    return {
+      type: 'siput', obj, s: 0.95, x: e.x, y: e.y, xmin: e.x - e.range, xmax: e.x + e.range, dir: -1, alive: true, squish: 0,
+      stompable: true, dashable: true, shell: false, sliding: 0, vy: 0, kickCool: 0,
+      box: { x: e.x, y: e.y, w: 0.9, h: 0.8 },
+      onStomp(g) {
+        if (!this.shell) { this.shell = true; this.sliding = 0; if (body) body.visible = false; g.sfx('stomp'); return true; }
+        if (this.sliding) { this.sliding = 0; g.sfx('stomp'); return true; }
+        return false;
+      },
+      update(dt, t, g) {
+        if (!this.alive) return dying(this, dt);
+        this.kickCool = Math.max(0, this.kickCool - dt);
+        const b = g.body;
+        if (!this.shell) {
+          walkerMove(this, dt, g, 0.7 * g.diff.bugSpeed);
+        } else if (this.sliding) {
+          this.x += this.sliding * 10 * dt;
+          const ahead = Math.floor(this.x + Math.sign(this.sliding) * 0.5), at = Math.floor(this.y + 0.3);
+          if (isSolid(cellAt(g, ahead, at))) this.sliding *= -1;
+          // fall into pits
+          if (!isSolid(cellAt(g, Math.floor(this.x), Math.floor(this.y - 0.1)))) { this.vy -= 30 * dt; this.y += this.vy * dt; if (this.y < -3) { this.alive = false; this.obj.visible = false; } }
+          g.shellHits(this);
+          this.obj.rotation.z += this.sliding * dt * 12;
+        } else if (this.kickCool === 0 && aabb(b, this.box) && b.vy >= -0.5) {
+          this.sliding = b.x < this.x ? 1 : -1; this.kickCool = 0.3; g.sfx('dash');
+        }
+        this.obj.position.set(this.x, this.y, 0);
+        if (!this.sliding) this.obj.rotation.y = this.dir > 0 ? -0.4 : Math.PI + 0.4;
+        this.box.x = this.x; this.box.y = this.y;
+        if (!this.shell || this.sliding) g.touchEnemy(this);
+        else if (aabb(b, this.box) && b.vy < -1 && b.y > this.y + 0.4) { this.sliding = b.x < this.x ? 1 : -1; b.vy = 9; g.sfx('stomp'); }
+      },
+    };
+  },
+
+  // lava blob: leaps out of the lava on a timer — can't be stomped
+  blob(e) {
+    const obj = make('LavaBlob'); obj.scale.setScalar(0.9);
+    const seed = Math.random() * 2;
+    return {
+      type: 'blob', obj, s: 0.9, alive: true, squish: 0, stompable: false, dashable: false, phase: seed,
+      box: { x: e.x, y: 0, w: 0.7, h: 0.7 },
+      update(dt, t, g) {
+        const period = 2.6 / g.diff.bugSpeed, tt = ((t + this.phase) % period) / period;
+        const up = tt < 0.55 ? Math.sin((tt / 0.55) * Math.PI) : 0;
+        const y = 0.3 + up * (e.height + 0.3);
+        this.obj.position.set(e.x, y, 0);
+        this.obj.rotation.z = tt < 0.275 ? 0 : Math.PI;
+        this.obj.visible = up > 0.02;
+        this.box.x = e.x; this.box.y = y - 0.35;
+        if (up > 0.05) g.touchEnemy(this);
+      },
+    };
+  },
+
   block(e, g) {
     const obj = make('CodeBlock'); obj.position.set(e.x + 0.5, e.y + 0.5, 0);
     return {
       type: 'block', obj, used: false, bounce: 0, x: e.x, y: e.y,
       hit(g) {
         if (this.used) { g.sfx('bump'); this.bounce = 0.5; return; }
-        this.used = true; this.bounce = 1;
+        this.used = true; this.alive = false; this.bounce = 1;   // alive=false keeps the spent block from being re-shown
         g.grid.cells[e.y * g.grid.w + e.x] = T.USED;
         const used = make('CodeBlockUsed'); used.position.copy(this.obj.position);
         this.obj.parent.add(used); this.obj.visible = false; this.usedObj = used;
-        if (e.gives === 'heart') g.spawnHeart(e.x + 0.5, e.y + 1.2);
+        if (e.gives === 'heart') g.spawnHeart(e.x + 0.5, e.y + 1.4);
         else { g.collectCoin(e.x + 0.5, e.y + 1.4, 3); }
         g.sfx('reward');
       },
@@ -240,23 +376,25 @@ const FACTORY = {
 
   gate(e, g) {
     const obj = make('Gate'); obj.position.set(e.x, e.y, 0);
-    obj.scale.set(1, e.height / 3, 1);
     const barrier = byName(obj, 'GateBarrier');
-    barrier?.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.55; o.castShadow = false; } });
+    const tall = g.grid.h - e.y;               // the light curtain reaches the sky
+    barrier?.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; } });
+    if (barrier) { barrier.scale.y = tall / 2.85; barrier.position.y = tall / 2; }
+    if (e.power) obj.traverse(o => { if (o.isMesh && o.material.name === 'gate_stone') { o.material = o.material.clone(); o.material.color.set('#c9a24a'); o.material.metalness = 0.6; o.material.roughness = 0.35; } });
     return {
-      type: 'gate', obj, skill: e.skill, open: false, fade: 1,
-      trigger: { x: e.x - 1.2, y: e.y, w: 1.6, h: e.height },
+      type: 'gate', obj, topic: e.topic, power: e.power, open: false, fade: 1,
+      trigger: { x: e.x - 1.1, y: e.y, w: 1.4, h: tall },
       openGate(g) {
         this.open = true;
-        for (let k = 0; k < e.height; k++) g.grid.cells[(e.y + k) * g.grid.w + Math.floor(e.x)] = T.EMPTY;
+        for (let y = e.y; y < g.grid.h; y++) if (g.grid.cells[y * g.grid.w + Math.floor(e.x)] === T.BARRIER) g.grid.cells[y * g.grid.w + Math.floor(e.x)] = T.EMPTY;
       },
       update(dt, t, g) {
         if (this.open) {
           this.fade = Math.max(0, this.fade - dt * 1.5);
-          if (barrier) { barrier.scale.set(this.fade, 1, 1); barrier.visible = this.fade > 0.01; }
+          if (barrier) { barrier.scale.x = this.fade; barrier.visible = this.fade > 0.01; }
           return;
         }
-        barrier?.traverse(o => { if (o.isMesh) o.material.opacity = 0.45 + Math.sin(t * 4) * 0.15; });
+        barrier?.traverse(o => { if (o.isMesh) o.material.opacity = 0.35 + Math.sin(t * 4) * 0.12; });
         if (!g.inQuiz && aabb(g.body, this.trigger)) g.reachGate(this);
       },
     };
@@ -264,14 +402,14 @@ const FACTORY = {
 
   spring(e) {
     const obj = make('Spring'); obj.position.set(e.x, e.y, 0);
-        return {
+    return {
       type: 'spring', obj, squash: 0, box: { x: e.x, y: e.y, w: 0.8, h: 0.6 },
       update(dt, t, g) {
         this.squash = Math.max(0, this.squash - dt * 4);
         obj.scale.y = 1 - Math.sin(this.squash * Math.PI) * 0.4;
         const b = g.body;
-        if (b.vy <= 0 && aabb(b, this.box) && b.y > e.y + 0.2) {
-          b.vy = P.springV; b.y = e.y + 0.62; b.onGround = false; b.springing = true; b.jumpsUsed = 1;
+        if (b.vy <= 0 && aabb(b, this.box) && b.y >= e.y - 0.05 && b.dash <= 0) {   // landing on it or walking onto it
+          b.vy = P.springV; b.y = e.y + 0.62; b.onGround = false; b.coyote = 0; b.springing = true; b.jumpsUsed = 1;
           this.squash = 1; g.sfx('spring'); b.jumped = 'jump';
         }
       },
@@ -294,7 +432,6 @@ const FACTORY = {
   },
 
   goal(e) {
-    // the exit: a tall archway with the next place's name glowing on it
     const obj = new THREE.Group(); obj.position.set(e.x, e.y, -0.4);
     const gate = make('Gate'); gate.scale.set(1.2, 1.2, 1); obj.add(gate);
     const b = byName(gate, 'GateBarrier');
@@ -309,6 +446,30 @@ const FACTORY = {
     };
   },
 };
+
+function flyer(model, e, tint) {
+  const obj = make(model); obj.scale.setScalar(1.15);
+  if (tint) obj.traverse(o => { if (o.isMesh && /bat_/.test(o.material.name)) { o.material = o.material.clone(); o.material.color.set(tint); o.material.emissive = new THREE.Color(tint); o.material.emissiveIntensity = 0.6; } });
+  const wings = [byName(obj, 'WingL'), byName(obj, 'WingR')];
+  return {
+    type: 'bat', obj, s: 1.15, alive: true, squish: 0, stompable: true, dashable: true, x: e.x, y: e.y, swoop: 0, cool: Math.random() * 2,
+    box: { x: e.x, y: e.y - 0.3, w: 0.8, h: 0.6 },
+    update(dt, t, g) {
+      if (!this.alive) { this.squish += dt; this.obj.position.y -= dt * 6; this.obj.rotation.z += dt * 8; if (this.squish > 0.8) this.obj.visible = false; return; }
+      const b = g.body, home = { x: e.x + (e.axis === 'x' ? Math.sin(t * 0.9 + e.x) * e.range : 0), y: e.y + (e.axis === 'y' ? Math.sin(t * 1.2 + e.x) * e.range : Math.sin(t * 2 + e.x) * 0.3) };
+      this.cool = Math.max(0, this.cool - dt);
+      if (this.swoop <= 0 && this.cool === 0 && Math.abs(b.x - this.x) < 6 && b.y < this.y - 1) { this.swoop = 1.6; this.tx = b.x; this.ty = b.y + 0.6; }
+      let tx = home.x, ty = home.y, k = 2;
+      if (this.swoop > 0) { this.swoop -= dt; if (this.swoop > 0.8) { tx = this.tx; ty = this.ty; k = 3.2 * g.diff.bugSpeed; } else if (this.swoop <= 0) this.cool = 2; }
+      this.x += (tx - this.x) * (1 - Math.exp(-k * dt)); this.y += (ty - this.y) * (1 - Math.exp(-k * dt));
+      this.obj.position.set(this.x, this.y, 0);
+      this.obj.rotation.y = b.x > this.x ? -0.5 : Math.PI + 0.5;
+      wings.forEach((w, i) => w && (w.rotation.x = Math.sin(t * 22) * 0.7 * (i ? -1 : 1)));
+      this.box.x = this.x; this.box.y = this.y - 0.3;
+      g.touchEnemy(this);
+    },
+  };
+}
 
 export function makeHeart(x, y) {
   const obj = make('Heart'); obj.position.set(x, y, 0); obj.scale.setScalar(1.3);

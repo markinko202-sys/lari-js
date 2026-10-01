@@ -1,88 +1,129 @@
-// Proves every level is beatable with the skills the player has at that point, and that the
-// obstacle right after each code gate is impossible WITHOUT the new skill (so gates can't be skipped).
-// Uses the real game physics. Run:  node tools/check_levels.mjs
-import { makeBody, step, T } from '../js/physics.js';
-import { LEVELS } from '../js/levels.js';
+// Proves, with the real game physics, for every level × difficulty:
+//   1. the goal is reachable with the skills you have at each point (code gates opened as you answer them);
+//   2. right after the power gate, the "proof" obstacle can NOT be crossed without the new power;
+//   3. jumps are planned as quick taps, so the route also works with touch controls.
+// It builds a graph of every standable span (ground, cube tops, blocks) and simulates jumps between them.
+//   node tools/check_levels.mjs [--verbose]
+import { makeBody, step, T, solid, P, overlapsHazard } from '../js/physics.js';
+import { LEVELS, buildLevel } from '../js/levels.js';
 
 const dt = 1 / 120;
+const VERBOSE = process.argv.includes('--verbose');
+const NAMES = ['Easy', 'Normal', 'Hard', 'Very hard'];
+const SK = { loop: 'double', function: 'dash', async: 'glide' };
 
-// can the player get from standing on segment A to standing on segment B?
-function crossable(grid, a, b, skills) {
-  const doubles = skills.double ? [null, ...range(10, 70, 4)] : [null];
-  const dashes = skills.dash ? [null, ...range(10, 130, 6)] : [null];
-  for (const jumpAt of [0.35, 0.6, 1.0]) for (const dbl of doubles) for (const dsh of dashes) {
-    const body = makeBody(a.x1 - 3.2, a.top);
-    let f = 0, jumped = false, jf = 0;
-    while (f++ < 1200) {
-      const ready = !jumped && body.x >= a.x1 - jumpAt;
-      const inp = { right: true, jump: true, jumpPressed: false, dashPressed: false };
-      if (ready) { inp.jumpPressed = true; jumped = true; jf = f; }
-      else if (!jumped) inp.jump = false;
-      if (jumped && dbl !== null && f - jf === dbl) inp.jumpPressed = true;
-      if (jumped && dsh !== null && f - jf === dsh) inp.dashPressed = true;
+export function spans(grid) {
+  const out = [];
+  const c = (x, y) => (x < 0 || x >= grid.w || y < 0 || y >= grid.h ? (y < 0 ? T.GROUND : T.EMPTY) : grid.cells[y * grid.w + x]);
+  for (let y = 1; y < grid.h; y++) {
+    let cur = null;
+    for (let x = 0; x < grid.w; x++) {
+      const ok = solid(c(x, y - 1)) && !solid(c(x, y)) && !solid(c(x, y + 1)) && c(x, y) !== T.SPIKE && c(x, y) !== T.HAZARD;
+      if (ok) { if (cur && cur.x1 === x) cur.x1++; else { cur = { x0: x, x1: x + 1, top: y, id: out.length }; out.push(cur); } }
+      else cur = null;
+    }
+  }
+  return out;
+}
+
+// try to get from span a to span b; springs give a boost; spikes/lava/pits fail the attempt
+export function crossable(grid, springs, a, b, skills) {
+  const dir = b.x0 >= a.x1 ? 1 : b.x1 <= a.x0 ? -1 : 0;
+  const starts = [];
+  if (dir === 1) starts.push(a.x1 - 0.35, a.x1 - 1.5, a.x1 - 3);
+  else if (dir === -1) starts.push(a.x0 + 0.35, a.x0 + 1.5, a.x0 + 3);
+  else { // overlapping in x: jump straight up/down from under the target's edges
+    for (const x of [b.x0 + 0.5, b.x1 - 0.5, (b.x0 + b.x1) / 2, b.x0 - 0.6, b.x1 + 0.6]) if (x > a.x0 + 0.3 && x < a.x1 - 0.3) starts.push(x);
+  }
+  const moves = dir === 0 ? [1, -1, 0] : [dir];
+  const dbl = skills.double ? [null, 18, 30, 42, 54] : [null];
+  const dsh = skills.dash ? [null, 25, 45, 65] : [null];
+  for (const sx of starts) for (const mv of moves) for (const mode of ['edge', 'early', 'now', 'walk']) for (const d2 of (mode === 'walk' ? [null] : dbl)) for (const ds of dsh) {
+    const jumpFirst = mode === 'now';
+    const body = makeBody(sx, a.top);
+    for (let k = 0; k < 3; k++) step(body, {}, grid, skills, dt);   // settle onto the ground first
+    let jumped = false, jf = 0;
+    for (let f = 0; f < 700; f++) {
+      const lead = mode === 'early' ? 1.1 : 0.3;   // real players take off a little before the edge too
+      const pastEdge = mv > 0 ? body.x > a.x1 - lead : mv < 0 ? body.x < a.x0 + lead : true;
+      const inp = { right: mv > 0, left: mv < 0, jump: false, jumpPressed: false, dashPressed: false };
+      if (!jumped && mode === 'walk') { if (!body.onGround) { jumped = true; jf = f; } }      // just step off the edge
+      else if (!jumped && (jumpFirst || pastEdge || !body.onGround)) { inp.jumpPressed = true; jumped = true; jf = f; }
+      if (jumped) {
+        const t = f - jf;
+        inp.jump = mode !== 'walk' && (t < 3 || (d2 !== null && t >= d2 && t < d2 + 3) || skills.glide);   // quick taps (+ hold for glide)
+        if (d2 !== null && t === d2) inp.jumpPressed = true;
+        if (ds !== null && t === ds) inp.dashPressed = true;
+        if (mv === 0) { inp.right = b.x0 + 0.5 > body.x; inp.left = b.x1 - 0.5 < body.x; }
+      }
       step(body, inp, grid, skills, dt);
+      for (const s of springs) if (body.vy <= 0 && Math.abs(body.x - s.x) < 0.7 && body.y >= s.y - 0.05 && body.y < s.y + 0.6) { body.vy = P.springV; body.y = s.y + 0.62; body.springing = true; body.onGround = false; body.coyote = 0; body.jumpsUsed = 1; }
       if (body.y < -2) break;
-      if (jumped && body.onGround && f - jf > 3) {
-        if (body.x >= b.x0 && Math.abs(body.y - b.top) < 0.01) return true;
-        if (body.x > a.x1 + 0.2) break;          // landed somewhere else
-        if (f - jf > 10) break;
+      if (overlapsHazard(body, grid)) break;                       // same rule as the game
+      if (body.onGround && f - jf > 2) {
+        if (Math.abs(body.y - b.top) < 0.01 && body.x + body.w / 2 > b.x0 && body.x - body.w / 2 < b.x1) return true;
+        if (!(Math.abs(body.y - a.top) < 0.01 && body.x + body.w / 2 > a.x0 && body.x - body.w / 2 < a.x1)) break;
+        if (f - jf > 20) break;
       }
     }
   }
   return false;
 }
-const range = (a, b, s) => { const r = []; for (let i = a; i <= b; i += s) r.push(i); return r; };
 
-// ground segments along the route (ignoring optional platforms / blocks)
-function segments(L) {
-  const top = x => { for (let y = L.h - 1; y >= 0; y--) if (L.cells[y * L.w + x] === T.GROUND) return y + 1; return -1; };
-  const segs = [];
-  for (let x = 0; x < L.w; x++) {
-    const t = top(x);
-    if (t < 0) continue;
-    const last = segs.at(-1);
-    if (last && last.x1 === x && last.top === t) last.x1++;
-    else segs.push({ x0: x, x1: x + 1, top: t });
+function reach(grid, springs, sp, startSpan, skillsAt) {
+  const seen = new Set([startSpan.id]), queue = [startSpan];
+  while (queue.length) {
+    const a = queue.shift();
+    const sk = skillsAt(a);
+    for (const b of sp) {
+      if (seen.has(b.id)) continue;
+      const gapX = b.x0 >= a.x1 ? b.x0 - a.x1 : a.x0 >= b.x1 ? a.x0 - b.x1 : 0;
+      if (gapX > (sk.glide ? 24 : sk.dash ? 14 : 10) || b.top - a.top > 6 || a.top - b.top > 14) continue;
+      if (crossable(grid, springs, a, b, sk)) { seen.add(b.id); queue.push(b); }
+    }
   }
-  return segs;
+  return seen;
 }
 
+if (import.meta.url.endsWith(process.argv[1].split('/').pop())) main();
+function main() {
 let ok = true;
-const have = {};
-const SKILL = { loop: 'double', function: 'dash', async: 'glide' };
+const t0 = Date.now();
 for (const def of LEVELS) {
-  const L = def.build();
-  const grid = { w: L.w, h: L.h, cells: L.cells };
-  // the gate barrier is opened once you answer; treat it as open for the route check
-  const gate = L.ents.find(e => e.type === 'gate');
-  const open = new Uint8Array(L.cells); for (let i = 0; i < open.length; i++) if (open[i] === T.BARRIER) open[i] = T.EMPTY;
-  const routeGrid = { ...grid, cells: open };
-  const segs = segments(L);
-  const before = { ...have }, after = { ...have, [SKILL[def.skill]]: true };
-  console.log(`\n${def.name}  (${segs.length} ground segments, gate at x=${gate.x - 0.5}, barrier ${gate.height} high)`);
-  for (let i = 0; i < segs.length - 1; i++) {
-    const a = segs[i], b = segs[i + 1];
-    const afterGate = a.x1 > gate.x;
-    const sk = afterGate ? after : before;
-    const pass = crossable(routeGrid, a, b, sk);
-    const gap = b.x0 - a.x1, rise = b.top - a.top;
-    const label = `  x${a.x1}→${b.x0}  gap ${gap} rise ${rise >= 0 ? '+' : ''}${rise}`;
-    if (!pass) { ok = false; console.log(`${label}  ✗ NOT crossable with ${JSON.stringify(sk)}`); continue; }
-    // the first obstacle after the gate must need the new skill
-    const firstAfter = afterGate && !(segs[i - 1] && segs[i - 1].x1 > gate.x) ;
-    if (firstAfter && crossable(routeGrid, a, b, before)) {
-      ok = false; console.log(`${label}  ✗ passable WITHOUT ${def.skill} — the gate can be skipped`);
-    } else console.log(`${label}  ✓${firstAfter ? `  (needs ${SKILL[def.skill]})` : ''}`);
+  const lvl = ['loop', 'function', 'async'].indexOf(def.skill);
+  for (let d = 0; d < 4; d++) {
+    const L = buildLevel(def, d);
+    const open = new Uint8Array(L.cells);
+    for (let i = 0; i < open.length; i++) if (open[i] === T.BARRIER) open[i] = T.EMPTY;
+    const grid = { w: L.w, h: L.h, cells: open };
+    const springs = L.ents.filter(e => e.type === 'spring');
+    const sp = spans(grid);
+    const at = (x, y) => sp.find(s => s.top === y && x >= s.x0 && x < s.x1);
+    const start = at(Math.floor(L.start.x), L.start.y);
+    const goal = L.ents.find(e => e.type === 'goal');
+    const goalSpan = at(Math.floor(goal.x), goal.y);
+    const powerGate = L.ents.find(e => e.type === 'gate' && e.power);
+    const proof = L.ents.find(e => e.type === 'proof');
+    const before = { double: lvl > 0, dash: lvl > 1, glide: false };
+    const after = { ...before, [SK[def.skill]]: true };
+    const skillsAt = s => (s.x1 > powerGate.x + 0.5 ? after : before);   // you can walk through the opened gate within a span
+    const seen = reach(grid, springs, sp, start, skillsAt);
+    const won = goalSpan && seen.has(goalSpan.id);
+    // without the power, nothing past the proof obstacle may be reachable
+    const noPower = reach(grid, springs, sp, start, () => before);
+    const leak = sp.filter(s => s.x0 >= proof.x1 && noPower.has(s.id));
+    const coins = L.ents.filter(e => e.type === 'coin').length;
+    const enemies = L.ents.filter(e => e.min !== undefined && e.min <= d).length;
+    const line = `${def.name.padEnd(14)} ${NAMES[d].padEnd(9)} length ${String(L.w).padStart(4)} · spans ${String(sp.length).padStart(3)} · coins ${coins} · enemies ${enemies}`;
+    if (!won) {
+      ok = false;
+      const far = [...seen].map(i => sp[i]).sort((p, q) => q.x1 - p.x1)[0];
+      console.log(`${line}  ✗ goal NOT reachable — stuck around x=${far.x1}, top ${far.top}`);
+    } else if (leak.length) {
+      ok = false; console.log(`${line}  ✗ proof obstacle skippable without ${SK[def.skill]} (reached x=${leak[0].x0})`);
+    } else console.log(`${line}  ✓`);
   }
-  // the barrier itself must be too tall to hop over with the skills you had before
-  const gx = Math.floor(gate.x), seg = segs.find(s => s.x0 <= gx - 1 && s.x1 > gx - 1);
-  const wall = { x0: gx + 1, x1: gx + 2, top: gate.y + gate.height };
-  const fake = new Uint8Array(L.cells);                   // stand-in: is there a ledge at the barrier top we could land on?
-  for (let y = 0; y < gate.y + gate.height; y++) fake[y * L.w + gx] = T.GROUND;
-  const hop = crossable({ ...grid, cells: fake }, { ...seg, x1: gx }, { x0: gx, x1: gx + 1, top: gate.y + gate.height }, before);
-  console.log(`  barrier hop-over without ${def.skill}: ${hop ? '✗ possible' : '✓ impossible'}`);
-  if (hop) ok = false;
-  Object.assign(have, after);
 }
-console.log(ok ? '\nALL LEVELS OK' : '\nPROBLEMS FOUND');
+console.log(`\n${ok ? 'ALL LEVELS OK' : 'PROBLEMS FOUND'}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 process.exit(ok ? 0 : 1);
+}
