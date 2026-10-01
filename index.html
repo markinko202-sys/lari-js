@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d1a24">
+<title>LARI.js — from kampung to KL</title>
+<meta name="description" content="A 3D platformer where learning JavaScript unlocks your powers. Run from a night kampung to Kuala Lumpur. Built by Artemiy Shepelev.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/game.css?v=1">
+<script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  } }
+</script>
+</head>
+<body>
+<canvas id="view" aria-label="Game view"></canvas>
+
+<!-- loading -->
+<section class="screen" data-screen="loading" aria-live="polite">
+  <div class="loader">
+    <p class="logo">LARI<span>.js</span></p>
+    <div class="bar"><span id="load-bar"></span></div>
+    <p class="mono small" id="load-text">npm install kampung…</p>
+  </div>
+</section>
+
+<!-- title -->
+<section class="screen" data-screen="title">
+  <div class="title-col">
+    <p class="kicker">A tiny 3D platformer</p>
+    <h1 class="logo big">LARI<span>.js</span></h1>
+    <p class="tag"><em>lari</em> — Malay for <b>run</b>. Learn to code, unlock your powers, run from the kampung to KL.</p>
+    <div class="menu">
+      <button class="btn primary" data-go="levels">Play</button>
+      <button class="btn" data-go="shop">Shop</button>
+      <button class="btn" data-go="settings">Settings</button>
+      <button class="btn ghost" data-go="about">About the dev</button>
+    </div>
+    <p class="wallet"><i class="coin-ic"></i><b class="coins-val">0</b></p>
+  </div>
+  <p class="hint-keys mono">← → move · Space jump · Shift dash</p>
+</section>
+
+<!-- level select -->
+<section class="screen" data-screen="levels">
+  <header class="screen-head">
+    <button class="btn small ghost" data-go="title">← Back</button>
+    <h2>Choose your route</h2>
+    <p class="wallet"><i class="coin-ic"></i><b class="coins-val">0</b></p>
+  </header>
+  <div class="route" id="route"></div>
+  <p class="diff-line">Difficulty: <b id="diff-label">Normal</b> <button class="link" data-go="settings">change</button></p>
+</section>
+
+<!-- shop -->
+<section class="screen" data-screen="shop">
+  <header class="screen-head">
+    <button class="btn small ghost" data-go="title">← Back</button>
+    <h2>Kedai</h2>
+    <p class="wallet"><i class="coin-ic"></i><b class="coins-val">0</b></p>
+  </header>
+  <div class="shop">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="characters" aria-selected="true">Characters</button>
+      <button role="tab" data-tab="hats">Hats</button>
+      <button role="tab" data-tab="trails">Trails</button>
+      <button role="tab" data-tab="items">Power-ups</button>
+    </nav>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+</section>
+
+<!-- settings -->
+<section class="screen" data-screen="settings">
+  <div class="panel">
+    <h2>Settings</h2>
+    <p class="label">Difficulty</p>
+    <div class="seg" id="diff-seg">
+      <button data-diff="0">Easy<small>3 answers · slow bugs</small></button>
+      <button data-diff="1">Normal<small>×1.5 coins</small></button>
+      <button data-diff="2">Hard<small>×2 coins · timed gates · wrong answer costs a life</small></button>
+    </div>
+    <p class="label">Sound</p>
+    <button class="btn small" id="sound-btn">Sound: on</button>
+    <p class="label">Progress</p>
+    <button class="btn small ghost" id="reset-btn">Reset save</button>
+    <button class="btn primary" data-go="back">Done</button>
+  </div>
+</section>
+
+<!-- about -->
+<section class="screen" data-screen="about">
+  <div class="panel about">
+    <p class="kicker">Built by</p>
+    <h2>Artemiy Shepelev</h2>
+    <p>Diploma in ICT at APU, Kuala Lumpur · front-end, 3D web and AI content.</p>
+    <ul class="facts">
+      <li><b>3D</b> every model generated with Python in <b>Blender</b>, exported to glTF</li>
+      <li><b>Engine</b> Three.js + a hand-written platformer physics module, tested headless in Node</li>
+      <li><b>Sound</b> 4 soundtracks and every effect synthesised live with the Web Audio API</li>
+      <li><b>Design</b> each JavaScript concept you learn literally becomes a power</li>
+    </ul>
+    <p class="links">
+      <a href="https://artemiy-shepelev.vercel.app" target="_blank" rel="noopener">Portfolio</a>
+      <a href="https://github.com/markinko202-sys" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.linkedin.com/in/artemiy-shepelev-063000430" target="_blank" rel="noopener">LinkedIn</a>
+    </p>
+    <button class="btn primary" data-go="back">Back</button>
+  </div>
+</section>
+
+<!-- HUD -->
+<section class="screen hud" data-screen="play">
+  <div class="hud-l">
+    <div class="hearts" id="hearts" aria-label="Lives"></div>
+    <p class="hud-coins"><i class="coin-ic"></i><b id="hud-coins">0</b></p>
+  </div>
+  <div class="hud-c">
+    <p class="hud-level" id="hud-level">Night Kampung</p>
+    <div class="progress"><span id="hud-progress"></span></div>
+  </div>
+  <div class="hud-r">
+    <div class="skills" id="skills"></div>
+    <button class="icon-btn" id="pause-btn" aria-label="Pause">❚❚</button>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="touch" id="touch" aria-hidden="true">
+    <div class="pad-l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+    <div class="pad-r"><button data-k="dash" class="dash">⇥</button><button data-k="jump" class="jump">▲</button></div>
+  </div>
+</section>
+
+<!-- code gate -->
+<div class="modal" id="quiz" role="dialog" aria-modal="true" aria-labelledby="quiz-title" hidden>
+  <div class="card quiz">
+    <p class="kicker" id="quiz-kicker">Code gate</p>
+    <h3 id="quiz-title">Loops repeat code</h3>
+    <p id="quiz-body"></p>
+    <pre class="code" id="quiz-code"></pre>
+    <div class="q">
+      <p class="q-text"><b>Compile the gate:</b> <span id="quiz-q"></span> <span class="timer" id="quiz-timer"></span></p>
+      <pre class="code small" id="quiz-qcode"></pre>
+      <div class="options" id="quiz-options"></div>
+      <p class="feedback" id="quiz-feedback" role="status"></p>
+    </div>
+  </div>
+</div>
+
+<!-- pause -->
+<div class="modal" id="pause" role="dialog" aria-modal="true" hidden>
+  <div class="card center">
+    <h3>Paused</h3>
+    <div class="menu">
+      <button class="btn primary" data-act="resume">Resume</button>
+      <button class="btn" data-act="restart">Restart level</button>
+      <button class="btn ghost" data-act="quit">Quit to route</button>
+    </div>
+  </div>
+</div>
+
+<!-- level complete -->
+<div class="modal" id="complete" role="dialog" aria-modal="true" hidden>
+  <div class="card center">
+    <p class="kicker" id="complete-kicker">Level clear</p>
+    <h3 id="complete-title">Night Kampung</h3>
+    <div class="stars" id="complete-stars"></div>
+    <dl class="tally" id="complete-tally"></dl>
+    <p class="unlocked" id="complete-unlock"></p>
+    <div class="menu row">
+      <button class="btn ghost" data-act="route">Route</button>
+      <button class="btn" data-act="shop">Shop</button>
+      <button class="btn primary" data-act="next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- game over -->
+<div class="modal" id="over" role="dialog" aria-modal="true" hidden>
+  <div class="card center">
+    <p class="kicker">Uncaught BugError</p>
+    <h3>Out of lives</h3>
+    <p class="muted">Coins you picked up are kept. Try again — or grab a power-up in the shop.</p>
+    <div class="menu row">
+      <button class="btn ghost" data-act="route">Route</button>
+      <button class="btn" data-act="shop">Shop</button>
+      <button class="btn primary" data-act="restart">Retry</button>
+    </div>
+  </div>
+</div>
+
+<!-- finale -->
+<section class="screen" data-screen="ending">
+  <div class="ending">
+    <p class="kicker">You made it to Kuala Lumpur</p>
+    <h2 class="logo">Welcome to the city.</h2>
+    <p>Three levels, three concepts: <code>for</code>, <code>function</code>, <code>async/await</code>. That's how I learn too — one skill at a time, each one opening the next road.</p>
+    <p>A new city is easier with someone who's already there. Thanks for playing — I'd love to build things like this with your team.</p>
+    <p class="sign">— Artemiy Shepelev · <a href="mailto:dzay0100@gmail.com">dzay0100@gmail.com</a></p>
+    <div class="menu row">
+      <button class="btn ghost" data-go="levels">Replay levels</button>
+      <button class="btn" data-go="shop">Shop</button>
+      <button class="btn primary" data-go="about">About the dev</button>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
