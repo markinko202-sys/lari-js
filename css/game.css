@@ -20,7 +20,7 @@
   --pop: cubic-bezier(.3, 1.6, .5, 1);
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--night); color: var(--cream); font-family: var(--f-ui); overflow: hidden;
+html, body { touch-action: manipulation; -webkit-touch-callout: none; margin: 0; height: 100%; background: var(--night); color: var(--cream); font-family: var(--f-ui); overflow: hidden;
   -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -160,6 +160,7 @@ em { font-style: italic; }
 
 /* touch controls (shown on coarse pointers) */
 .touch { display: none; position: absolute; left: 0; right: 0; bottom: calc(18px + var(--safe-b)); padding: 0 calc(18px + var(--safe-l)) 0 calc(18px + var(--safe-r)); justify-content: space-between; }
+.touch, .touch * { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .touch button { width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--ink); background: rgba(255,250,240,.85); color: var(--ink); font-size: 26px; box-shadow: 0 5px 0 var(--ink); touch-action: none; }
 .touch button.jump { width: 86px; height: 86px; background: rgba(255,107,74,.92); color: var(--paper); }
 .touch button.press { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }

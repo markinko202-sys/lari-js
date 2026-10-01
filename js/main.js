@@ -73,6 +73,15 @@ for (const b of $$('#touch button')) {
   b.addEventListener('contextmenu', e => e.preventDefault());
 }
 addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// iOS Safari ignores user-scalable=no: stop double-tap zoom and pinch zoom ourselves
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = performance.now();
+  if (now - lastTouchEnd < 350 || e.target.closest('#touch, #view')) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+$('#touch').addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 
 // ------------------------------------------------------------------ screens
 let state = 'loading', prevScreen = 'title';
