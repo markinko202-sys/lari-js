@@ -58,9 +58,10 @@ export function instance(name, positions, parent, { scale = 1, shadows = true } 
   });
 }
 
-// GLTFLoader makes node names unique ("LegL", "LegL_1", …) — look parts up by their base name
+// Duplicate names get suffixed twice over: Blender makes "Head.001" (exported as "Head001") and
+// GLTFLoader adds "_1". Look parts up by their base name.
 export function byName(root, name) {
   let hit = null;
-  root.traverse(o => { if (!hit && (o.name === name || o.name.replace(/_\d+$/, '') === name)) hit = o; });
+  root.traverse(o => { if (!hit && (o.name === name || o.name.replace(/(_\d+|\d{3})+$/, '') === name)) hit = o; });
   return hit;
 }

@@ -233,4 +233,10 @@ em { font-style: italic; }
   .touch button { width: 60px; height: 60px; }
   .touch button.jump { width: 72px; height: 72px; }
 }
+@media (max-width: 560px) {
+  .hud-c { top: calc(64px + var(--safe-t)); }
+  .hud-r .skills { display: none; }
+  .hud-coins { font-size: 15px; }
+  .heart { width: 22px; } .heart::before { font-size: 26px; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

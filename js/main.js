@@ -406,11 +406,12 @@ function updateCamera(dt) {
   if (state === 'play' || state === 'quiz' || state === 'paused' || state === 'complete' || state === 'over') {
     const b = run.body;
     camState.look += ((b.facing * 2.2) - camState.look) * (1 - Math.exp(-2.5 * dt));
-    camState.x += (Math.max(7, b.x + camState.look) - camState.x) * t;   // never show the void left of the start
+    const portraitCam = camera.aspect < 1;
+    camState.x += (Math.max(portraitCam ? 3.5 : 7, b.x + camState.look * (portraitCam ? 0.5 : 1)) - camState.x) * t;   // never show the void left of the start
     const ty = Math.max(3.2, b.y + 1.6);
     camState.y += (ty - camState.y) * (1 - Math.exp(-3 * dt));
     const portrait = camera.aspect < 1;
-    camera.position.set(camState.x, camState.y + 2.2, portrait ? 20 : 15.5);
+    camera.position.set(camState.x, camState.y + 2.2, portrait ? 15 : 15.5);
     camera.lookAt(camState.x, camState.y - 0.2, 0);
   } else if (state === 'ending') {
     camera.position.set(0, 3, 13); camera.lookAt(0, 4.5, -10);
