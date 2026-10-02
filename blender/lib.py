@@ -161,9 +161,12 @@ def export(roots, filename):
         r.select_set(True)
         for c in r.children_recursive: c.select_set(True)
     os.makedirs(ASSETS, exist_ok=True)
+    # Draco-compressed meshes: the files shrink several times over (the game loads the decoder from the CDN)
     bpy.ops.export_scene.gltf(filepath=os.path.join(ASSETS, filename), export_format='GLB',
                               use_selection=True, export_apply=True, export_yup=True,
-                              export_extras=False, export_lights=False, export_cameras=False)
+                              export_extras=False, export_lights=False, export_cameras=False,
+                              export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6,
+                              export_draco_position_quantization=14, export_draco_normal_quantization=10)
 
 def studio(res=(900, 700), samples=40, bg="#14161c", strength=0.7):
     scn.render.engine = 'CYCLES'; scn.cycles.samples = samples; scn.cycles.device = 'CPU'

@@ -308,6 +308,319 @@ def kit_city(x0):
                     rbox(f"Win{k}_{i}_{j}", (0.18, 0.02, 0.24), P(8 + k * 3 - w / 2 + 0.25 + j * 0.35, -0.81, 0.4 + i * 0.5), lit, r)
     return out
 
+# ------------------------------------------------------------------ level 4: pantai (beach at sunset)
+def eyes(P, x, z, parent, y=0.09, r=0.06, angry=False, glow=None):
+    white = mat("en_eye", "#fbfaf6", rough=0.3)
+    ink = mat("en_ink", "#16141b", rough=0.4)
+    for s in (1, -1):
+        if glow:
+            ball(f"EyeG{s}", r, P(x, s * y, z), mat(f"en_glow_{glow}", glow, emit=5.0), parent)
+        else:
+            ball(f"EyeW{s}", r, P(x, s * y, z), white, parent)
+            ball(f"EyeP{s}", r * 0.55, P(x + r * 0.6, s * y, z), ink, parent)
+        if angry:
+            rbox(f"Brow{s}", (0.05, r * 2.2, 0.03), P(x + 0.01, s * y, z + r * 1.1), ink, parent, rot=(math.radians(-25 * s), 0, 0))
+
+def kit_beach(x0):
+    out = tile_set("bch", x0, "#efd09a", "#d2ac72", lip_col="#fff3d6")
+    P = lambda dx, dy, dz: (x0 + dx, dy, dz)
+    wood = mat("bch_wood", "#b4865a", rough=0.8)
+    wood_d = mat("bch_wood_d", "#7a5636", rough=0.85)
+    sand = mat("bch_sand", "#e8c88e", rough=0.95)
+
+    r = empty("bch_Pier", P(3, 0, 0)); out.append(r)
+    for k in range(3):
+        rbox(f"PierPlank{k}", (1.0, DEPTH * 0.7 / 3 - 0.03, 0.1), P(3, -DEPTH * 0.35 + DEPTH * 0.7 / 6 + k * DEPTH * 0.7 / 3, 0.42),
+             wood if k % 2 else wood_d, r, bevel=0.02)
+    for dy in (-0.7, 0.7):
+        cyl(f"PierPost{dy}", 0.07, 1.6, P(3, dy, -0.35), wood_d, r, verts=8)
+
+    r = empty("bch_Umbrella", P(5, 0, 0)); out.append(r)
+    cyl("UmbPole", 0.04, 2.0, P(5, 0, 1.0), mat("umb_pole", "#efe4cc"), r, verts=8)
+    top = cyl("UmbTop", 1.0, 0.45, P(5, 0, 2.05), mat("umb_red", "#e2382e", rough=0.6), r, r2=0.05, verts=16, smooth=False)
+    top.data.materials.append(mat("umb_white", "#fbfaf6", rough=0.6))
+    for i, poly in enumerate(top.data.polygons):      # alternate red / white wedges
+        if abs(poly.normal.z) < 0.99:
+            a = math.atan2(poly.center.y, poly.center.x - 5)
+            poly.material_index = int((a + math.pi) / (math.pi / 4)) % 2
+    rbox("Towel", (1.1, 0.6, 0.03), P(5 + 0.4, -0.5, 0.02), mat("towel", "#286eeb", rough=0.9), r)
+
+    r = empty("bch_Castle", P(7.5, 0, 0)); out.append(r)
+    rbox("CastleBase", (0.9, 0.7, 0.35), P(7.5, 0, 0.17), sand, r, bevel=0.05)
+    for k, (dx, h) in enumerate([(-0.3, 0.55), (0.0, 0.75), (0.3, 0.5)]):
+        cyl(f"CastleTower{k}", 0.15, h, P(7.5 + dx, 0, 0.3 + h / 2), sand, r, verts=12)
+        cyl(f"CastleCone{k}", 0.18, 0.22, P(7.5 + dx, 0, 0.3 + h + 0.11), sand, r, r2=0.0, verts=12)
+    rbox("CastleFlag", (0.18, 0.02, 0.12), P(7.5 + 0.09, 0, 1.38), mat("castle_flag", "#e2382e"), r)
+    cyl("CastleStick", 0.01, 0.35, P(7.5, 0, 1.3), mat("castle_stick", "#7a5636"), r, verts=6)
+
+    r = empty("bch_Hut", P(10, 0, 0)); out.append(r)     # chalet on stilts
+    for dx in (-1.1, 1.1):
+        for dy in (-0.8, 0.8):
+            cyl(f"HutStilt{dx}{dy}", 0.07, 1.0, P(10 + dx, dy, 0.5), wood_d, r, verts=8)
+    rbox("HutFloor", (2.6, 2.0, 0.14), P(10, 0, 1.05), wood_d, r)
+    rbox("HutWalls", (2.4, 1.8, 1.3), P(10, 0, 1.75), mat("hut_blue", "#4fb0c6", rough=0.7), r, bevel=0.02)
+    rbox("HutDoor", (0.5, 0.04, 0.85), P(10 + 0.4, -0.92, 1.55), mat("hut_door", "#f2b632"), r)
+    rbox("HutWindow", (0.45, 0.04, 0.4), P(10 - 0.55, -0.92, 1.8), mat("hut_win", "#ffcf7a", emit=2.0), r)
+    prism("HutRoof", [(-1.6, 0), (1.6, 0), (0, 1.0)], 2.2, mat("hut_roof", "#c9573a", rough=0.8), r, loc=P(10, 0, 2.4))
+
+    r = empty("bch_Rock", P(13, 0, 0)); out.append(r)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.55, location=P(13, 0, 0.25))
+    o = bpy.context.object; o.scale = (1.4, 1, 0.7)
+    for v in o.data.vertices: v.co *= random.uniform(0.88, 1.12)
+    lib._finish(o, "BchRockMesh", r, mat("bch_rock", "#6f6a66", rough=0.8), False)
+    for k in range(4):
+        ball(f"Barnacle{k}", 0.05, P(13 - 0.3 + k * 0.2, -0.45, 0.2 + (k % 2) * 0.12), mat("barnacle", "#d9d2c2"), r, scale=(1, 0.6, 1))
+
+    r = empty("bch_Shell", P(15, 0, 0)); out.append(r)
+    for k in range(5):
+        a = math.radians(-50 + k * 25)
+        limb(f"ShellRib{k}", P(15, 0, 0.04), P(15 + math.sin(a) * 0.32, -0.05, 0.04 + math.cos(a) * 0.3), 0.06, mat("seashell", "#f6c9b6", rough=0.4), r, r2=0.03)
+
+    r = empty("bch_Boat", P(17, 0, 0)); out.append(r)     # perahu with a painted prow
+    prism("BoatHull", [(-1.6, 0.4), (1.6, 0.4), (1.1, -0.15), (-1.1, -0.15)], 0.9, mat("boat_hull", "#2f8f86", rough=0.6), r, loc=P(17, 0, 0.2))
+    rbox("BoatStripe", (3.2, 0.92, 0.1), P(17, 0, 0.5), mat("boat_stripe", "#e2382e"), r)
+    prism("BoatProw", [(0, 0), (0.25, 0), (0.6, 0.9), (0.4, 1.0)], 0.12, mat("boat_prow", "#f2b632"), r, loc=P(17 + 1.4, 0, 0.55))
+    cyl("BoatMast", 0.04, 1.8, P(17 - 0.2, 0, 1.4), wood_d, r, verts=8)
+    prism("BoatSail", [(0, 0), (1.0, 0), (0, 1.4)], 0.03, mat("boat_sail", "#fbf3df", rough=0.7), r, loc=P(17 - 0.15, 0, 0.75))
+
+    r = empty("bch_Lighthouse", P(20, 0, 0)); out.append(r)
+    for k in range(5):
+        cyl(f"LhBand{k}", 0.62 - k * 0.07, 1.0, P(20, 0, 0.5 + k * 1.0), mat("lh_red" if k % 2 else "lh_white", "#e2382e" if k % 2 else "#f6f1e6", rough=0.6), r,
+            r2=0.62 - (k + 1) * 0.07, verts=20)
+    cyl("LhGallery", 0.42, 0.12, P(20, 0, 5.06), mat("lh_dark", "#26252d"), r, verts=20)
+    cyl("LhLamp", 0.25, 0.5, P(20, 0, 5.37), mat("lh_lamp", "#fff1a8", emit=8.0), r, verts=16)
+    cyl("LhCap", 0.32, 0.35, P(20, 0, 5.8), mat("lh_red", "#e2382e"), r, r2=0.03, verts=16)
+
+    r = empty("bch_Block", P(23, 0, 0)); out.append(r)
+    rbox("BchBlockBody", (0.98, DEPTH * 0.55, 0.98), P(23, 0, 0), mat("bch_block", "#e3c48a", rough=0.9), r, bevel=0.06)
+    rbox("BchBlockBand", (1.0, DEPTH * 0.56, 0.12), P(23, 0, -0.3), mat("bch_block_band", "#4fb0c6", rough=0.6), r, bevel=0.03)
+    for k in range(3):
+        a = math.radians(-40 + k * 40)
+        limb(f"BlockShell{k}", P(23, -DEPTH * 0.28 - 0.01, 0.0), P(23 + math.sin(a) * 0.22, -DEPTH * 0.28 - 0.01, math.cos(a) * 0.22 + 0.0), 0.035,
+             mat("seashell", "#f6c9b6"), r, r2=0.02)
+
+    # beach enemies
+    r = empty("Ketam", P(26, 0, 0)); out.append(r)        # red beach crab
+    shell = mat("ketam_shell", "#e2482e", rough=0.4, coat=0.7)
+    ball("KetamBody", 0.32, P(26, 0, 0.32), shell, r, scale=(1.25, 1.0, 0.6))
+    for s_ in (1, -1):
+        limb(f"KetamStalk{s_}", P(26 + 0.25, s_ * 0.1, 0.42), P(26 + 0.3, s_ * 0.12, 0.62), 0.025, shell, r)
+    eyes(P, 26 + 0.3, 0.66, r, y=0.12, r=0.06)
+    for s_ in (1, -1):
+        limb(f"KetamArm{s_}", P(26 + 0.3, s_ * 0.25, 0.3), P(26 + 0.55, s_ * 0.35, 0.4), 0.05, shell, r)
+        ball(f"KetamClaw{s_}", 0.13, P(26 + 0.65, s_ * 0.36, 0.45), shell, r, scale=(1.3, 0.7, 1.0))
+        for k in range(3):
+            leg = empty(f"KetamLeg{'L' if s_ > 0 else 'R'}{k}", P(26 - 0.2 + k * 0.18, s_ * 0.3, 0.25), r)
+            limb(f"KetamLegMesh{s_}{k}", P(26 - 0.2 + k * 0.18, s_ * 0.3, 0.25), P(26 - 0.25 + k * 0.2, s_ * 0.5, 0.0), 0.03, shell, leg)
+
+    r = empty("Camar", P(28, 0, 0)); out.append(r)        # seagull
+    gull = mat("gull_white", "#f6f4ee", rough=0.6)
+    grey = mat("gull_grey", "#9aa3ad", rough=0.6)
+    ball("GullBody", 0.22, P(28, 0, 0), gull, r, scale=(1.4, 0.9, 0.9))
+    ball("GullHead", 0.14, P(28 + 0.28, 0, 0.12), gull, r)
+    cyl("GullBeak", 0.045, 0.16, P(28 + 0.45, 0, 0.1), mat("gull_beak", "#f2b632"), r, rot=(0, math.radians(90), 0), r2=0.0, verts=8)
+    eyes(P, 28 + 0.36, 0.17, r, y=0.07, r=0.035, angry=True)
+    rbox("GullTail", (0.22, 0.16, 0.05), P(28 - 0.32, 0, 0.03), grey, r, bevel=0.02)
+    shape = [(0.15, 0.0), (0.05, 0.5), (-0.15, 0.62), (-0.3, 0.3), (-0.12, 0.0)]
+    for s_, n in ((1, "L"), (-1, "R")):
+        w = empty(f"Wing{n}", P(28, s_ * 0.12, 0.08), r)
+        prism(f"GullWing{n}", shape, 0.025, grey, w, loc=P(28 + 0.05, s_ * 0.12, 0.08), rot=(math.radians(-55 * s_), 0, 0))
+
+    r = empty("OborObor", P(30, 0, 0)); out.append(r)     # jellyfish
+    jelly = mat("jelly", "#f29ad0", rough=0.15, emit=1.2, alpha=0.75)
+    ball("JellyDome", 0.34, P(30, 0, 0.1), jelly, r, scale=(1, 1, 0.7))
+    for k in range(6):
+        a = k * math.pi / 3
+        limb(f"JellyTentacle{k}", P(30 + math.cos(a) * 0.18, math.sin(a) * 0.18, 0.0), P(30 + math.cos(a) * 0.22, math.sin(a) * 0.22, -0.45), 0.03,
+             mat("jelly_t", "#c870c0", emit=1.0), r, r2=0.01)
+    eyes(P, 30 + 0.27, 0.15, r, y=0.1, r=0.06, angry=True)
+    return out
+
+# ------------------------------------------------------------------ level 5: gua (limestone caves, Batu-Caves style)
+def kit_cave(x0):
+    out = tile_set("gua", x0, "#b3aa98", "#5c544b", lip_col="#5f7f4f")
+    P = lambda dx, dy, dz: (x0 + dx, dy, dz)
+    lime = mat("gua_lime", "#9c9384", rough=0.9)
+    lime_d = mat("gua_lime_d", "#6e675c", rough=0.9)
+    teal = mat("gua_crystal", "#4ff0c8", rough=0.1, emit=3.0)
+
+    r = empty("gua_Ledge", P(3, 0, 0)); out.append(r)
+    rbox("LedgeSlab", (1.0, DEPTH * 0.7, 0.35), P(3, 0, 0.32), lime, r, bevel=0.06)
+    ball("LedgeMoss", 0.2, P(3 - 0.2, -DEPTH * 0.3, 0.48), mat("gua_moss", "#5f7f4f"), r, scale=(1.6, 0.5, 0.3))
+
+    r = empty("gua_Stalagmite", P(5, 0, 0)); out.append(r)
+    for k, (dx, h, rr) in enumerate([(-0.25, 1.1, 0.25), (0.15, 1.7, 0.32), (0.45, 0.8, 0.18)]):
+        cyl(f"Mite{k}", rr, h, P(5 + dx, 0, h / 2), lime_d if k % 2 else lime, r, r2=0.03, verts=10)
+
+    r = empty("gua_Crystal", P(7, 0, 0)); out.append(r)
+    for k, (dx, h, tilt) in enumerate([(-0.18, 0.7, -18), (0.04, 1.05, 4), (0.24, 0.6, 22), (-0.02, 0.45, -35)]):
+        cyl(f"GCrystal{k}", 0.12, h, P(7 + dx, 0, h / 2), teal, r, verts=6, r2=0.0, rot=(0, math.radians(tilt), 0), smooth=False)
+    ball("CrystalRock", 0.3, P(7, 0, 0.05), lime_d, r, scale=(1.4, 1, 0.5))
+
+    r = empty("gua_Shroom", P(9, 0, 0)); out.append(r)
+    for k, (dx, h, rr) in enumerate([(-0.2, 0.35, 0.18), (0.12, 0.5, 0.24), (0.35, 0.25, 0.13)]):
+        cyl(f"ShStem{k}", 0.04, h, P(9 + dx, 0, h / 2), mat("shroom_stem", "#d9e6ef"), r, verts=8)
+        ball(f"ShCap{k}", rr, P(9 + dx, 0, h), mat("shroom_cap", "#5ab8ff", emit=2.5), r, scale=(1, 1, 0.5))
+
+    r = empty("gua_Column", P(11, 0, 0)); out.append(r)      # floor-to-ceiling limestone column, far back
+    cyl("ColBody", 0.9, 14, P(11, 0, 7), lime_d, r, verts=12, r2=0.7)
+    for k in range(5):
+        torus(f"ColRing{k}", 0.85 - k * 0.03, 0.12, P(11, 0, 1.5 + k * 2.6), lime, r)
+
+    r = empty("gua_Lantern", P(13, 0, 0)); out.append(r)
+    cyl("LanPost", 0.06, 1.3, P(13, 0, 0.65), mat("lan_wood", "#5a3a22"), r, verts=8)
+    rbox("LanBox", (0.32, 0.32, 0.4), P(13, 0, 1.45), mat("lan_frame", "#2a2a30", metal=0.6, rough=0.4), r, bevel=0.03)
+    rbox("LanGlow", (0.24, 0.34, 0.3), P(13, 0, 1.45), mat("lan_glow", "#ffb347", emit=8.0), r)
+    cyl("LanRoof", 0.28, 0.16, P(13, 0, 1.73), mat("lan_frame", "#2a2a30"), r, r2=0.03, verts=4)
+
+    r = empty("gua_Steps", P(16, 0, 0)); out.append(r)       # the famous rainbow staircase, as backdrop
+    colors = ["#e2382e", "#f2902e", "#f2d13a", "#5abf4a", "#2f8fdb", "#7b5cc4", "#e2508f"]
+    for k in range(14):
+        c = colors[k % 7]
+        rbox(f"Step{k}", (1.8, 0.35, 0.3), P(16, -k * 0.35, k * 0.3 + 0.15), mat(f"step_{c}", c, rough=0.6), r)
+    for dx in (-1.0, 1.0):
+        rbox(f"StepRail{dx}", (0.12, 5.0, 0.12), P(16 + dx, -2.4, 2.6), mat("rail", "#d9d6cf", metal=0.6, rough=0.3), r, rot=(math.radians(-40), 0, 0))
+
+    r = empty("gua_Block", P(19, 0, 0)); out.append(r)
+    rbox("GuaBlockBody", (0.98, DEPTH * 0.55, 0.98), P(19, 0, 0), mat("gua_block", "#b8ae9c", rough=0.85), r, bevel=0.06)
+    for k in range(4):     # ammonite fossil spiral
+        torus(f"Fossil{k}", 0.08 + k * 0.06, 0.018, P(19 + k * 0.02, -DEPTH * 0.28 - 0.01, -0.02 + k * 0.015), mat("fossil", "#7a705f"), r,
+              rot=(math.radians(90), 0, 0))
+
+    r = empty("Stalactite", P(21, 0, 0)); out.append(r)     # falls when you pass below
+    cyl("StalBody", 0.3, 1.1, P(21, 0, -0.55), lime, r, r2=0.02, verts=10, rot=(math.radians(180), 0, 0))
+    cyl("StalTop", 0.34, 0.2, P(21, 0, 0.0), lime_d, r, verts=10)
+    eyes(P, 21 + 0.17, -0.25, r, y=0.09, r=0.05, angry=True)
+
+    r = empty("Kera", P(23, 0, 0)); out.append(r)           # long-tailed macaque that charges and leaps
+    fur = mat("kera_fur", "#8a7a64", rough=0.85)
+    face = mat("kera_face", "#e8a99a", rough=0.6)
+    ball("KeraBody", 0.3, P(23, 0, 0.55), fur, r, scale=(1.1, 0.9, 1.1))
+    ball("KeraHead", 0.22, P(23 + 0.3, 0, 0.85), fur, r)
+    ball("KeraFace", 0.15, P(23 + 0.42, 0, 0.83), face, r, scale=(0.6, 1.1, 1))
+    eyes(P, 23 + 0.5, 0.88, r, y=0.06, r=0.04, angry=True)
+    for s_ in (1, -1):
+        ball(f"KeraEar{s_}", 0.06, P(23 + 0.28, s_ * 0.2, 0.92), face, r, scale=(0.5, 1, 1))
+    for s_, n in ((1, "L"), (-1, "R")):
+        leg = empty(f"KeraLeg{n}", P(23, s_ * 0.13, 0.35), r)
+        limb(f"KeraLegMesh{n}", P(23, s_ * 0.13, 0.35), P(23 + 0.05, s_ * 0.14, 0.04), 0.06, fur, leg)
+        limb(f"KeraArm{n}", P(23 + 0.15, s_ * 0.28, 0.65), P(23 + 0.32, s_ * 0.3, 0.3), 0.05, fur, r)
+    limb("KeraTail1", P(23 - 0.28, 0, 0.5), P(23 - 0.55, 0, 0.7), 0.035, fur, r)
+    limb("KeraTail2", P(23 - 0.55, 0, 0.7), P(23 - 0.6, 0, 1.05), 0.03, fur, r, r2=0.02)
+
+    r = empty("Lipan", P(26, 0, 0)); out.append(r)          # centipede
+    seg_a = mat("lipan_a", "#8a2a2a", rough=0.4, coat=0.6)
+    seg_b = mat("lipan_b", "#2a1a1a", rough=0.4, coat=0.6)
+    for k in range(5):
+        ball(f"LipanSeg{k}", 0.17 - k * 0.012, P(26 + 0.3 - k * 0.2, 0, 0.18), seg_a if k % 2 == 0 else seg_b, r, scale=(1, 1.1, 0.8))
+        for s_ in (1, -1):
+            leg = empty(f"LipanLeg{'L' if s_ > 0 else 'R'}{k}", P(26 + 0.3 - k * 0.2, s_ * 0.12, 0.15), r)
+            limb(f"LipanLegMesh{s_}{k}", P(26 + 0.3 - k * 0.2, s_ * 0.12, 0.15), P(26 + 0.3 - k * 0.2, s_ * 0.3, 0.0), 0.02, mat("lipan_leg", "#f2b632"), leg)
+    eyes(P, 26 + 0.42, 0.25, r, y=0.07, r=0.045, angry=True)
+    for s_ in (1, -1):
+        limb(f"LipanAnt{s_}", P(26 + 0.42, s_ * 0.05, 0.3), P(26 + 0.62, s_ * 0.16, 0.45), 0.012, seg_b, r)
+    return out
+
+# ------------------------------------------------------------------ level 6: KL rooftops at night
+def kit_kota(x0):
+    out = tile_set("kota", x0, "#8f959e", "#2e3644")
+    top_root = [o for o in out if o.name == "kota_TileTop"][0]
+    rbox("Parapet", (1.04, 0.1, 0.16), (x0, -DEPTH / 2 + 0.05, 0.58), mat("parapet", "#c9ced4", rough=0.6), top_root)
+    P = lambda dx, dy, dz: (x0 + dx, dy, dz)
+    # the fill tiles are building facade: one lit window each (and an unlit twin for variety)
+    fill = [o for o in out if o.name == "kota_TileFill"][0]
+    rbox("KotaWin", (0.42, 0.03, 0.5), (x0 + 1.2, -DEPTH / 2 - 0.01, 0.05), mat("kota_win", "#ffd27a", emit=3.0), fill)
+    r = empty("kota_TileFill2", P(1.2, 3, 0)); out.append(r)
+    rbox("KotaTF2", (1.0, DEPTH, 1.0), P(1.2, 3, 0), mat("kota_fill", "#2e3644", rough=0.9), r)
+    rbox("KotaWin2", (0.42, 0.03, 0.5), P(1.2, 3 - DEPTH / 2 - 0.01, 0.05), mat("kota_win_off", "#3e5068", rough=0.2, metal=0.4), r)
+    steel = mat("kota_steel", "#c9ced4", rough=0.3, metal=0.9)
+    dark = mat("kota_dark", "#3b4250", rough=0.6)
+
+    r = empty("kota_Girder", P(3, 0, 0)); out.append(r)
+    girder = mat("girder", "#d8452e", rough=0.5, metal=0.5)
+    rbox("GirderTop", (1.0, DEPTH * 0.6, 0.08), P(3, 0, 0.46), girder, r)
+    rbox("GirderWeb", (1.0, 0.1, 0.3), P(3, 0, 0.27), girder, r)
+    rbox("GirderBot", (1.0, DEPTH * 0.6, 0.08), P(3, 0, 0.1), girder, r)
+
+    r = empty("kota_AC", P(5, 0, 0)); out.append(r)
+    rbox("ACBox", (0.9, 0.6, 0.6), P(5, 0, 0.3), mat("ac_body", "#e4e6ea", rough=0.5), r, bevel=0.04)
+    cyl("ACFan", 0.22, 0.03, P(5 + 0.1, -0.31, 0.3), dark, r, rot=(math.radians(90), 0, 0), verts=20)
+    for k in range(4):
+        rbox(f"ACGrill{k}", (0.46, 0.02, 0.02), P(5 + 0.1, -0.33, 0.18 + k * 0.08), steel, r)
+
+    r = empty("kota_Tank", P(7, 0, 0)); out.append(r)
+    for dx in (-0.4, 0.4):
+        for dy in (-0.4, 0.4):
+            cyl(f"TankLeg{dx}{dy}", 0.04, 0.9, P(7 + dx, dy, 0.45), dark, r, verts=6)
+    cyl("TankBody", 0.62, 1.0, P(7, 0, 1.4), mat("tank", "#5a8fb0", rough=0.5), r, verts=20)
+    cyl("TankLid", 0.66, 0.2, P(7, 0, 2.0), mat("tank_lid", "#3e6a88"), r, r2=0.1, verts=20)
+
+    r = empty("kota_Antenna", P(9, 0, 0)); out.append(r)
+    cyl("AntMast", 0.05, 3.0, P(9, 0, 1.5), steel, r, verts=8)
+    for k in range(3):
+        rbox(f"AntBar{k}", (0.7 - k * 0.15, 0.04, 0.04), P(9, 0, 1.4 + k * 0.55), steel, r)
+    ball("AntLight", 0.09, P(9, 0, 3.05), mat("ant_red", "#ff2a2a", emit=8.0), r)
+
+    r = empty("kota_Neon", P(11, 0, 0)); out.append(r)
+    for dx in (-0.8, 0.8):
+        cyl(f"NeonPost{dx}", 0.04, 1.2, P(11 + dx, 0, 0.6), dark, r, verts=6)
+    rbox("NeonBoard", (2.0, 0.12, 0.8), P(11, 0, 1.55), mat("neon_board", "#1a1830", rough=0.4), r, bevel=0.04)
+    text("NeonText", "LARI", 0.5, P(11, -0.08, 1.55), mat("neon_pink", "#ff4fb0", emit=6.0), r, extrude=0.02)
+    torus("NeonRing", 0.12, 0.025, P(11 + 0.75, -0.08, 1.7), mat("neon_teal", "#4ff0e0", emit=6.0), r, rot=(math.radians(90), 0, 0))
+
+    r = empty("kota_Dish", P(13, 0, 0)); out.append(r)
+    cyl("DishPost", 0.05, 0.7, P(13, 0, 0.35), dark, r, verts=8)
+    ball("DishBowl", 0.45, P(13, -0.1, 0.9), mat("dish", "#eceef2", rough=0.3), r, scale=(0.35, 1, 1), rot=(0, 0, math.radians(-20)))
+    limb("DishArm", P(13 - 0.1, -0.1, 0.9), P(13 - 0.45, -0.2, 0.95), 0.015, steel, r)
+
+    r = empty("kota_Crane", P(16, 0, 0)); out.append(r)     # tower crane, far back
+    crane = mat("crane", "#f2b632", rough=0.5, metal=0.3)
+    rbox("CraneMast", (0.5, 0.5, 9.0), P(16, 0, 4.5), crane, r)
+    rbox("CraneJib", (7.0, 0.35, 0.35), P(16 + 2.0, 0, 9.1), crane, r)
+    rbox("CraneCab", (0.7, 0.6, 0.5), P(16, 0, 8.6), mat("crane_cab", "#3e6a88"), r)
+    rbox("CraneWeight", (1.0, 0.6, 0.7), P(16 - 1.2, 0, 8.8), dark, r)
+    cyl("CraneCable", 0.015, 3.0, P(16 + 4.5, 0, 7.6), dark, r, verts=6)
+    rbox("CraneLoad", (0.8, 0.5, 0.4), P(16 + 4.5, 0, 6.0), mat("crane_load", "#d8452e"), r)
+    ball("CraneLight", 0.1, P(16 + 5.4, 0, 9.35), mat("ant_red", "#ff2a2a", emit=8.0), r)
+
+    r = empty("kota_Box", P(19, 0, 0)); out.append(r)
+    rbox("KotaBoxBody", (0.98, DEPTH * 0.55, 0.98), P(19, 0, 0), mat("kota_box", "#7c8592", rough=0.5, metal=0.5), r, bevel=0.04)
+    for dz in (-0.3, 0.3):
+        rbox(f"KotaBoxRib{dz}", (1.0, DEPTH * 0.56, 0.06), P(19, 0, dz), dark, r)
+    rbox("KotaBoxHazard", (0.5, 0.03, 0.14), P(19, -DEPTH * 0.28 - 0.01, 0), mat("hazard_y", "#f2b632", emit=0.5), r)
+
+    # city enemies
+    r = empty("RoboVac", P(22, 0, 0)); out.append(r)
+    cyl("VacBody", 0.4, 0.2, P(22, 0, 0.14), mat("vac_body", "#2a2d36", rough=0.3, coat=0.8), r, verts=28)
+    cyl("VacTop", 0.3, 0.04, P(22, 0, 0.26), mat("vac_top", "#4a4f5a", rough=0.3), r, verts=28)
+    rbox("VacBumper", (0.08, 0.6, 0.1), P(22 + 0.36, 0, 0.12), mat("vac_bumper", "#c9ced4"), r, bevel=0.03)
+    ball("VacEye", 0.07, P(22 + 0.25, 0, 0.3), mat("vac_eye", "#ff2a2a", emit=6.0), r, scale=(1, 1.6, 0.6))
+    for s_ in (1, -1):
+        leg = empty(f"VacLeg{'L' if s_ > 0 else 'R'}0", P(22 + 0.2, s_ * 0.3, 0.06), r)
+        cyl(f"VacBrush{s_}", 0.1, 0.02, P(22 + 0.3, s_ * 0.3, 0.04), mat("vac_brush", "#f2b632"), leg, verts=6)
+
+    r = empty("Merpati", P(24, 0, 0)); out.append(r)         # rooftop pigeon
+    pg = mat("pigeon", "#8a8f9e", rough=0.6)
+    ball("PigeonBody", 0.27, P(24, 0, 0.42), pg, r, scale=(1.3, 0.9, 1.0))
+    ball("PigeonHead", 0.15, P(24 + 0.3, 0, 0.72), pg, r)
+    ball("PigeonNeck", 0.16, P(24 + 0.2, 0, 0.58), mat("pigeon_neck", "#4f9a8a", rough=0.3, coat=0.8), r)
+    cyl("PigeonBeak", 0.035, 0.12, P(24 + 0.47, 0, 0.71), mat("pigeon_beak", "#e9b38a"), r, rot=(0, math.radians(90), 0), r2=0.0, verts=8)
+    eyes(P, 24 + 0.38, 0.77, r, y=0.07, r=0.035, angry=True)
+    rbox("PigeonTail", (0.25, 0.18, 0.05), P(24 - 0.35, 0, 0.42), mat("pigeon_d", "#5a5f6e"), r, bevel=0.02)
+    for s_, n in ((1, "L"), (-1, "R")):
+        leg = empty(f"PigeonLeg{n}", P(24, s_ * 0.08, 0.2), r)
+        limb(f"PigeonLegMesh{n}", P(24, s_ * 0.08, 0.2), P(24 + 0.02, s_ * 0.08, 0.02), 0.02, mat("pigeon_feet", "#d9707f"), leg)
+
+    r = empty("Drone", P(26, 0, 0)); out.append(r)
+    rbox("DroneBody", (0.5, 0.5, 0.16), P(26, 0, 0), mat("drone", "#e4e6ea", rough=0.4), r, bevel=0.05)
+    ball("DroneCam", 0.09, P(26 + 0.22, 0, -0.1), mat("drone_cam", "#16141b", rough=0.1, coat=1), r)
+    ball("DroneEye", 0.05, P(26 + 0.29, 0, -0.1), mat("vac_eye", "#ff2a2a", emit=6.0), r)
+    for k, (dx, dy) in enumerate([(0.3, 0.3), (0.3, -0.3), (-0.3, 0.3), (-0.3, -0.3)]):
+        limb(f"DroneArm{k}", P(26, 0, 0.02), P(26 + dx, dy, 0.05), 0.025, dark, r)
+        w = empty(f"Wing{'L' if dy > 0 else 'R'}{k}", P(26 + dx, dy, 0.1), r)
+        rbox(f"Rotor{k}", (0.36, 0.05, 0.015), P(26 + dx, dy, 0.1), mat("rotor", "#2a2d36"), w)
+    return out
+
 if __name__ == "__main__":
     reset()
     export(common(0), "common.glb")
@@ -315,6 +628,9 @@ if __name__ == "__main__":
     export(kit_forest(60), "kit_forest.glb")
     export(kit_volcano(90), "kit_volcano.glb")
     export(kit_city(130), "kit_city.glb")
+    export(kit_beach(170), "kit_beach.glb")
+    export(kit_cave(210), "kit_cave.glb")
+    export(kit_kota(250), "kit_kota.glb")
     if "render" in sys.argv:
         cam = studio(res=(1600, 520), bg="#101320")
         shoot(cam, (8, -14, 2.5), (8, 0, 0.9), 34, "common.png")
@@ -322,5 +638,8 @@ if __name__ == "__main__":
         shoot(cam, (68, -16, 4), (68, 0, 1.6), 38, "forest.png")
         shoot(cam, (99, -18, 4.5), (99, 0, 1.8), 38, "volcano.png")
         shoot(cam, (139, -20, 4.5), (139, 0, 3), 36, "city.png")
+        shoot(cam, (185, -26, 3.5), (185, 0, 1.6), 40, "beach.png")
+        shoot(cam, (223, -24, 3.5), (223, 0, 1.6), 40, "cave.png")
+        shoot(cam, (263, -26, 4), (263, 0, 2), 40, "kota.png")
         print("RENDERED")
     print("OK world")

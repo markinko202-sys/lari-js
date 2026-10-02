@@ -5,12 +5,11 @@
 // It builds a graph of every standable span (ground, cube tops, blocks) and simulates jumps between them.
 //   node tools/check_levels.mjs [--verbose]
 import { makeBody, step, T, solid, P, overlapsHazard } from '../js/physics.js';
-import { LEVELS, buildLevel } from '../js/levels.js';
+import { LEVELS, buildLevel, SKILLS, SKILL_ORDER } from '../js/levels.js';
 
 const dt = 1 / 120;
 const VERBOSE = process.argv.includes('--verbose');
 const NAMES = ['Easy', 'Normal', 'Hard', 'Very hard'];
-const SK = { loop: 'double', function: 'dash', async: 'glide' };
 
 export function spans(grid) {
   const out = [];
@@ -36,6 +35,7 @@ export function crossable(grid, springs, a, b, skills) {
     for (const x of [b.x0 + 0.5, b.x1 - 0.5, (b.x0 + b.x1) / 2, b.x0 - 0.6, b.x1 + 0.6]) if (x > a.x0 + 0.3 && x < a.x1 - 0.3) starts.push(x);
   }
   const moves = dir === 0 ? [1, -1, 0] : [dir];
+  if (skills.wall && wallClimb(grid, a, b, starts, moves)) return true;
   const dbl = skills.double ? [null, 18, 30, 42, 54] : [null];
   const dsh = skills.dash ? [null, 25, 45, 65] : [null];
   for (const sx of starts) for (const mv of moves) for (const mode of ['edge', 'early', 'now', 'walk']) for (const d2 of (mode === 'walk' ? [null] : dbl)) for (const ds of dsh) {
@@ -70,6 +70,31 @@ export function crossable(grid, springs, a, b, skills) {
   return false;
 }
 
+// wall jumps: run at a wall, tap jump at every wall contact and steer for the opposite wall,
+// then once above the target, steer onto it
+function wallClimb(grid, a, b, starts, moves) {
+  const skills = { double: true, dash: true, glide: true, wall: true };
+  for (const sx of starts) for (const mv of moves) {
+    const body = makeBody(sx, a.top);
+    for (let k = 0; k < 3; k++) step(body, {}, grid, skills, dt);
+    let hold = mv || 1, last = -99, jf = 0;
+    for (let f = 0; f < 900; f++) {
+      const inp = { right: hold > 0, left: hold < 0, jump: f - last < 4 || f < 4, jumpPressed: f === 0 };
+      if (f > 0 && !body.onGround && body.wallT === 0 && f - last > 6) { inp.jumpPressed = true; inp.jump = true; last = f; }
+      if (body.y > b.top + 0.05) { const t = (b.x0 + b.x1) / 2; hold = t > body.x ? 1 : -1; }
+      step(body, inp, grid, skills, dt);
+      if (body.jumped === 'wall') { hold = -body.wallDir; body.jumped = null; }
+      if (body.y < -2 || overlapsHazard(body, grid)) break;
+      if (body.onGround && f > 8) {
+        if (Math.abs(body.y - b.top) < 0.01 && body.x + body.w / 2 > b.x0 && body.x - body.w / 2 < b.x1) return true;
+        if (f - jf > 30) { jf = f; inp.jumpPressed = true; last = f; }   // landed back on the floor: try again from here
+        if (f > 400) break;
+      }
+    }
+  }
+  return false;
+}
+
 function reach(grid, springs, sp, startSpan, skillsAt) {
   const seen = new Set([startSpan.id]), queue = [startSpan];
   while (queue.length) {
@@ -78,7 +103,7 @@ function reach(grid, springs, sp, startSpan, skillsAt) {
     for (const b of sp) {
       if (seen.has(b.id)) continue;
       const gapX = b.x0 >= a.x1 ? b.x0 - a.x1 : a.x0 >= b.x1 ? a.x0 - b.x1 : 0;
-      if (gapX > (sk.glide ? 24 : sk.dash ? 14 : 10) || b.top - a.top > 6 || a.top - b.top > 14) continue;
+      if (gapX > (sk.glide ? 24 : sk.dash ? 14 : 10) || b.top - a.top > (sk.wall ? 11 : 6) || a.top - b.top > 14) continue;
       if (crossable(grid, springs, a, b, sk)) { seen.add(b.id); queue.push(b); }
     }
   }
@@ -89,38 +114,49 @@ if (import.meta.url.endsWith(process.argv[1].split('/').pop())) main();
 function main() {
 let ok = true;
 const t0 = Date.now();
+const ONLY = process.argv.find(a => /^--level=/.test(a))?.slice(8);
 for (const def of LEVELS) {
-  const lvl = ['loop', 'function', 'async'].indexOf(def.skill);
+  if (ONLY && def.id !== ONLY) continue;
+  const lvl = SKILL_ORDER.indexOf(def.skill);
+  const move = SKILLS[def.skill].move;
   for (let d = 0; d < 4; d++) {
     const L = buildLevel(def, d);
-    const open = new Uint8Array(L.cells);
-    for (let i = 0; i < open.length; i++) if (open[i] === T.BARRIER) open[i] = T.EMPTY;
-    const grid = { w: L.w, h: L.h, cells: open };
+    const before = {};
+    for (let k = 0; k < lvl; k++) before[SKILLS[SKILL_ORDER[k]].move] = true;
+    const after = { ...before, [move]: true };
+    // gates are opened as you answer them; cracked rock / loose floor open once you can shoot / pound
+    const gridFor = sk => {
+      const open = new Uint8Array(L.cells);
+      for (let i = 0; i < open.length; i++) {
+        const c = open[i];
+        if (c === T.BARRIER || (c === T.CRACK && sk.shoot) || (c === T.SOFT && sk.pound)) open[i] = T.EMPTY;
+      }
+      return { w: L.w, h: L.h, cells: open };
+    };
+    const grid = gridFor(after), gridNo = gridFor(before);
     const springs = L.ents.filter(e => e.type === 'spring');
-    const sp = spans(grid);
-    const at = (x, y) => sp.find(s => s.top === y && x >= s.x0 && x < s.x1);
-    const start = at(Math.floor(L.start.x), L.start.y);
+    const sp = spans(grid), spNo = spans(gridNo);
+    const at = (list, x, y) => list.find(s => s.top === y && x >= s.x0 && x < s.x1);
+    const start = at(sp, Math.floor(L.start.x), L.start.y);
     const goal = L.ents.find(e => e.type === 'goal');
-    const goalSpan = at(Math.floor(goal.x), goal.y);
+    const goalSpan = at(sp, Math.floor(goal.x), goal.y);
     const powerGate = L.ents.find(e => e.type === 'gate' && e.power);
     const proof = L.ents.find(e => e.type === 'proof');
-    const before = { double: lvl > 0, dash: lvl > 1, glide: false };
-    const after = { ...before, [SK[def.skill]]: true };
     const skillsAt = s => (s.x1 > powerGate.x + 0.5 ? after : before);   // you can walk through the opened gate within a span
     const seen = reach(grid, springs, sp, start, skillsAt);
     const won = goalSpan && seen.has(goalSpan.id);
     // without the power, nothing past the proof obstacle may be reachable
-    const noPower = reach(grid, springs, sp, start, () => before);
-    const leak = sp.filter(s => s.x0 >= proof.x1 && noPower.has(s.id));
+    const noPower = reach(gridNo, springs, spNo, at(spNo, Math.floor(L.start.x), L.start.y), () => before);
+    const leak = spNo.filter(s => s.x0 >= proof.x1 && noPower.has(s.id));
     const coins = L.ents.filter(e => e.type === 'coin').length;
     const enemies = L.ents.filter(e => e.min !== undefined && e.min <= d).length;
-    const line = `${def.name.padEnd(14)} ${NAMES[d].padEnd(9)} length ${String(L.w).padStart(4)} · spans ${String(sp.length).padStart(3)} · coins ${coins} · enemies ${enemies}`;
+    const line = `${def.id.padEnd(8)} ${NAMES[d].padEnd(9)} length ${String(L.w).padStart(4)} · spans ${String(sp.length).padStart(3)} · coins ${coins} · enemies ${enemies}`;
     if (!won) {
       ok = false;
       const far = [...seen].map(i => sp[i]).sort((p, q) => q.x1 - p.x1)[0];
       console.log(`${line}  ✗ goal NOT reachable — stuck around x=${far.x1}, top ${far.top}`);
     } else if (leak.length) {
-      ok = false; console.log(`${line}  ✗ proof obstacle skippable without ${SK[def.skill]} (reached x=${leak[0].x0})`);
+      ok = false; console.log(`${line}  ✗ proof obstacle skippable without ${move} (reached x=${leak[0].x0}, top ${leak[0].top})`);
     } else console.log(`${line}  ✓`);
   }
 }
