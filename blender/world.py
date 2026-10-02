@@ -9,6 +9,14 @@ DEPTH = 2.4
 random.seed(11)
 
 # ------------------------------------------------------------------ shared props
+def star_outline(r_out, r_in, n=5):
+    pts = []
+    for i in range(n * 2):
+        a = math.pi / 2 + i * math.pi / n
+        r = r_out if i % 2 == 0 else r_in
+        pts.append((math.cos(a) * r, math.sin(a) * r))
+    return pts
+
 def common(x0):
     P = lambda dx, dy, dz: (x0 + dx, dy, dz)
     out = []
@@ -18,7 +26,8 @@ def common(x0):
     r = empty("Coin", P(0, 0, 0)); out.append(r)
     cyl("CoinDisc", 0.32, 0.08, P(0, 0, 0), gold, r, rot=(math.radians(90), 0, 0), verts=32)
     torus("CoinRim", 0.30, 0.025, P(0, 0, 0), goldd, r, rot=(math.radians(90), 0, 0))
-    text("CoinMark", "{}", 0.32, P(0, -0.045, 0.0), goldd, r, extrude=0.012)
+    for side in (-1, 1):   # a raised star on both faces (the coin spins)
+        prism(f"CoinStar{side}", star_outline(0.17, 0.075), 0.03, goldd, r, loc=P(0, side * 0.045, 0.0))
 
     # the enemy is literally a bug
     r = empty("Bug", P(2, 0, 0)); out.append(r)
@@ -51,12 +60,14 @@ def common(x0):
         w = empty(f"Wing{side}", P(4 - 0.05, y, 0.18), r)
         ball(f"WingMesh{side}", 0.22, P(4 - 0.1, y * 1.6, 0.34), mat("wing", "#cfe8f2", rough=0.1, alpha=0.6), w, scale=(1, 0.5, 0.25))
 
-    # code block (the "?" block) and its spent version
+    # the surprise block and its spent version
     cb = mat("block_teal", "#2f8f86", rough=0.45, coat=0.5)
     cream = mat("block_cream", "#efe4cc", rough=0.5)
     r = empty("CodeBlock", P(6, 0, 0)); out.append(r)
     rbox("CodeBlockMesh", (0.96, 0.96, 0.96), P(6, 0, 0), cb, r, bevel=0.08)
-    text("CodeBlockMark", "{ }", 0.42, P(6, -0.49, 0.02), cream, r, extrude=0.03)
+    # the surprise block: a big "?" — coins, a heart, a star or a 1-UP inside
+    text("CodeBlockMarkShadow", "?", 1.0, P(6 + 0.045, -0.488, -0.045), mat("block_shadow", "#123c39", rough=0.6), r, extrude=0.02)
+    text("CodeBlockMark", "?", 1.0, P(6, -0.5, 0.0), cream, r, extrude=0.03)
     for dx in (-0.36, 0.36):
         for dz in (-0.36, 0.36):
             ball(f"Rivet{dx}{dz}", 0.04, P(6 + dx, -0.48, dz), cream, r)
@@ -86,7 +97,7 @@ def common(x0):
     cyl("Pole", 0.04, 2.2, P(13, 0, 1.1), mat("pole", "#d9d6cf", rough=0.3, metal=0.8), r, verts=12)
     flag = empty("Flag", P(13, 0, 2.0), r)
     rbox("FlagCloth", (0.8, 0.04, 0.5), P(13 + 0.42, 0, 1.92), mat("flag", "#e8b33a", rough=0.6), flag)
-    text("FlagMark", "</>", 0.22, P(13 + 0.42, -0.03, 1.92), mat("flag_ink", "#26252d"), flag, extrude=0.01)
+    prism("FlagMark", star_outline(0.15, 0.065), 0.06, mat("flag_ink", "#26252d"), flag, loc=P(13 + 0.42, 0, 1.92))
     ball("PoleTop", 0.07, P(13, 0, 2.22), mat("pole_top", "#e8b33a", rough=0.3, metal=0.6), r)
 
     # spring pad

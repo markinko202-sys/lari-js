@@ -1,15 +1,15 @@
 // LARI.js — game controller: screens, input, the play loop, life-lesson gates, bosses, shop and save.
 import * as THREE from 'three';
-import { loadAll, ensureTheme } from './assets.js?v=6';
-import { World } from './world.js?v=6';
-import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js?v=6';
-import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js?v=6';
-import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js?v=6';
-import { lessonText, pickQuestion } from './quiz.js?v=6';
-import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js?v=6';
-import { t, setLang, getLang, detectLang, LANGS } from './i18n.js?v=6';
-import { thumbnail } from './thumbs.js?v=6';
-import * as audio from './audio.js?v=6';
+import { loadAll, ensureTheme } from './assets.js?v=7';
+import { World } from './world.js?v=7';
+import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js?v=7';
+import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js?v=7';
+import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js?v=7';
+import { lessonText, pickQuestion } from './quiz.js?v=7';
+import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js?v=7';
+import { t, setLang, getLang, detectLang, LANGS } from './i18n.js?v=7';
+import { thumbnail } from './thumbs.js?v=7';
+import * as audio from './audio.js?v=7';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -814,7 +814,7 @@ function tick(dt) {
     run.dead -= dt;
     if (run.deathAnim) {
       const d = run.deathAnim; d.vy -= 30 * dt; d.y += d.vy * dt;
-      rig.model.visible = true; rig.root.position.y = d.y; rig.model.rotation.z += dt * 7;
+      rig.model.visible = true; rig.root.position.y = d.y; rig.flipper.rotation.z += dt * 7;   // spin about the waist
     } else rig.model.visible = false;
     if (!run.final && run.dead < 0.35) $('#fade').classList.add('on');
     for (const e of run.ents) if (Math.abs((e.obj.position.x || e.x0 || 0) - b.x) < 26) e.update(dt, elapsed, game);

@@ -1,7 +1,7 @@
 // The player's 3D rig and every interactive thing in a level.
 import * as THREE from 'three';
-import { make, byName, ownMaterials } from './assets.js?v=6';
-import { aabb, T, P, solid, cell } from './physics.js?v=6';
+import { make, byName, ownMaterials } from './assets.js?v=7';
+import { aabb, T, P, solid, cell } from './physics.js?v=7';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
@@ -25,24 +25,28 @@ export const CHAR_META = {
   kenyalang: { emote: 'flap',    voice: 1.15 },
 };
 
-// Emotes write pose targets for progress p (0…1). k: legL legR armL armR (swing) · armLx armRx (raise) · head lean y spin flip tail
-const EMOTES = {
-  wave(k, p, t) { k.armRx = 2.7 + Math.sin(t * 16) * 0.35; k.armR = -0.2; k.head = 0.12; k.y = bell(p * 1.2) * 0.04; },
-  stretch(k, p, t) { const s = bell(p); k.lean = -0.5 * s; k.armL = -1.5 * s; k.armR = -1.5 * s; k.legR = 0.5 * s; k.tail = 1.0 * s + Math.sin(t * 10) * 0.3; k.head = 0.25 * s; },
-  robot(k, p) { const st = Math.floor(p * 6); k.armL = st % 2 ? -1.57 : 0; k.armR = st % 2 ? 0 : -1.57; k.head = st % 3 === 1 ? 0.35 : st % 3 === 2 ? -0.35 : 0; k.y = (st % 2) * 0.04; k.snap = true; },
-  flip(k, p) { const q = clamp((p - 0.15) / 0.6, 0, 1); k.y = bell(q) * 1.4; k.flip = ease(q) * Math.PI * 2; k.legL = k.legR = 0.9 * bell(q); k.armL = k.armR = -1.2 * bell(q); if (p > 0.8) { k.armRx = 1.3; k.armL = -1.0; } },
-  float(k, p, t) { const s = bell(p); k.y = s * 0.9; k.armLx = -1.1 * s; k.armRx = 1.1 * s; k.legL = 0.25 * s; k.legR = -0.2 * s; k.spin = Math.sin(t * 1.4) * 0.4 * s; k.lean = Math.sin(t * 2) * 0.1 * s; },
-  bow(k, p) { const s = bell(p); k.armR = -1.1 * s; k.armRx = -0.4 * s; k.lean = -0.38 * s; k.head = 0.2 * s; k.armL = -0.3 * s; },
-  dance(k, p, t) { const s = bell(p), b = Math.sin(t * 12); k.y = Math.abs(b) * 0.18 * s; k.spin = b * 0.5 * s; k.armLx = -(1.6 + b * 0.8) * s; k.armRx = (1.6 - b * 0.8) * s; k.legL = b * 0.4 * s; k.legR = -b * 0.4 * s; },
-  cheer(k, p, t) { const s = bell(p), b = Math.sin(t * 14); k.armLx = -(2.6 + b * 0.25) * s; k.armRx = (2.6 - b * 0.25) * s; k.y = Math.abs(Math.sin(t * 7)) * 0.2 * s; k.head = 0.15 * s; },
-  twirl(k, p) { const q = clamp(p / 0.7, 0, 1); k.spin = ease(q) * Math.PI * 2; k.armLx = -1.3 * bell(q); k.armRx = 1.3 * bell(q); const c = clamp((p - 0.7) / 0.3, 0, 1); k.y = -bell(c) * 0.12; k.lean = -0.2 * bell(c); },
+// Emotes write pose targets for progress p (0…1). Conventions (same for both sides, so a pose can't fold into the body):
+//   armL / armR   swing forward (+) or back (−)      armLx / armRx   raise out to the side (+), in toward the chest (−)
+//   legL / legR   swing forward (+)                  head            tilt back (+) / forward (−)
+//   lean          forward (−) / back (+)             y lift · spin turn · flip somersault about the waist · tail swish
+export const EMOTES = {
+  wave(k, p, t) { k.armRx = 2.45 + Math.sin(t * 16) * 0.3; k.armR = 0.25; k.head = 0.12; k.y = bell(p * 1.2) * 0.04; },
+  stretch(k, p, t) { const s = bell(p); k.lean = -0.45 * s; k.armL = 1.5 * s; k.armR = 1.5 * s; k.legR = -0.5 * s; k.tail = 1.0 * s + Math.sin(t * 10) * 0.3; k.head = 0.2 * s; },
+  robot(k, p) { const st = Math.floor(p * 6); k.armL = st % 2 ? 1.57 : 0; k.armR = st % 2 ? 0 : 1.57; k.head = st % 3 === 1 ? 0.3 : st % 3 === 2 ? -0.2 : 0; k.y = (st % 2) * 0.04; k.snap = true; },
+  flip(k, p) { const q = clamp((p - 0.15) / 0.6, 0, 1); k.y = bell(q) * 1.1; k.flip = ease(q) * Math.PI * 2; k.legL = k.legR = 0.9 * bell(q); k.armL = k.armR = 1.1 * bell(q); if (p > 0.8) { k.armRx = 1.4; k.armL = 0.6; } },
+  float(k, p, t) { const s = bell(p); k.y = s * 0.9; k.armLx = 1.1 * s; k.armRx = 1.1 * s; k.legL = 0.25 * s; k.legR = -0.2 * s; k.spin = Math.sin(t * 1.4) * 0.4 * s; k.lean = Math.sin(t * 2) * 0.1 * s; },
+  bow(k, p) { const s = bell(p); k.armR = 1.25 * s; k.armRx = -0.25 * s; k.armL = 0.2 * s; k.lean = -0.38 * s; k.head = -0.15 * s; },
+  dance(k, p, t) { const s = bell(p), b = Math.sin(t * 12); k.y = Math.abs(b) * 0.18 * s; k.spin = b * 0.5 * s; k.armLx = (1.6 + b * 0.8) * s; k.armRx = (1.6 - b * 0.8) * s; k.legL = b * 0.4 * s; k.legR = -b * 0.4 * s; },
+  cheer(k, p, t) { const s = bell(p), b = Math.sin(t * 14); k.armLx = (2.4 + b * 0.2) * s; k.armRx = (2.4 - b * 0.2) * s; k.y = Math.abs(Math.sin(t * 7)) * 0.2 * s; k.head = 0.15 * s; },
+  twirl(k, p) { const q = clamp(p / 0.7, 0, 1); k.spin = ease(q) * Math.PI * 2; k.armLx = 1.3 * bell(q); k.armRx = 1.3 * bell(q); const c = clamp((p - 0.7) / 0.3, 0, 1); k.y = -bell(c) * 0.12; k.lean = -0.2 * bell(c); },
   hop(k, p, t) { const s = bell(p); k.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.45 * s; k.legL = k.legR = 0.4 * s; k.head = Math.sin(t * 20) * 0.15 * s; k.tail = Math.sin(t * 25) * 0.8; },
-  roar(k, p, t) { const s = bell(p); k.lean = (p < 0.35 ? 0.25 : -0.3) * s; k.armL = k.armR = -1.9 * s; k.armLx = -0.5 * s; k.armRx = 0.5 * s; k.head = (p < 0.35 ? -0.3 : 0.3 + Math.sin(t * 40) * 0.05) * s; k.tail = 1.2 * s; },
-  flap(k, p, t) { const s = bell(p), f = Math.sin(t * 22); k.armLx = -(1.2 + f * 0.9) * s; k.armRx = (1.2 + f * 0.9) * s; k.y = (0.25 + Math.sin(t * 11) * 0.08) * s; k.tail = 0.6 * s; },
-  victory(k, p, t) { k.armLx = -2.7; k.armRx = 2.7; k.y = Math.abs(Math.sin(t * 6)) * 0.35; },
+  roar(k, p, t) { const s = bell(p); k.lean = (p < 0.35 ? 0.25 : -0.3) * s; k.armL = k.armR = 1.9 * s; k.armLx = k.armRx = 0.4 * s; k.head = (p < 0.35 ? 0.3 : -0.2 + Math.sin(t * 40) * 0.05) * s; k.tail = 1.2 * s; },
+  flap(k, p, t) { const s = bell(p), f = Math.sin(t * 22); k.armLx = k.armRx = (1.2 + f * 0.9) * s; k.y = (0.25 + Math.sin(t * 11) * 0.08) * s; k.tail = 0.6 * s; },
+  victory(k, p, t) { k.armLx = k.armRx = 2.45; k.y = Math.abs(Math.sin(t * 6)) * 0.35; },
 };
-const EMOTE_TIME = { flip: 1.4, twirl: 1.7, robot: 1.8, victory: 99 };
+export const EMOTE_TIME = { flip: 1.4, twirl: 1.7, robot: 1.8, victory: 99 };
 const POSE_KEYS = ['legL', 'legR', 'armL', 'armR', 'armLx', 'armRx', 'head', 'lean', 'y', 'spin', 'flip', 'tail'];
+const PIVOT = 0.85;   // waist height of every character
 
 // ------------------------------------------------------------------ player visual
 export class Rig {
@@ -50,13 +54,16 @@ export class Rig {
     this.id = charId; this.meta = CHAR_META[charId] || CHAR_META.coder;
     this.root = new THREE.Group();
     this.model = make(`Char_${charId}`);
-    this.root.add(this.model);
+    // flips spin about the waist (a pivot group), never about the feet — the head stays above the ground
+    this.flipper = new THREE.Group(); this.flipper.position.y = PIVOT;
+    this.root.add(this.flipper); this.flipper.add(this.model); this.model.position.y = -PIVOT;
     const get = n => byName(this.model, n);
     this.parts = { legL: get('LegL'), legR: get('LegR'), armL: get('ArmL'), armR: get('ArmR'), head: get('Head'), tail: get('Tail') || get('Braid') };
     if (hatId && hatId !== 'none') {
       const anchor = get('HatAnchor');
       const hat = make(`Hat_${hatId}`);
       (anchor || this.parts.head || this.model).add(hat);
+      this.tuckUnderHat(hat);
     }
     // own copies of the materials, so the star glow tints only this rig
     this.mats = ownMaterials(this.root).map(m => ({ m, e: m.emissive?.clone(), i: m.emissiveIntensity }));
@@ -64,6 +71,19 @@ export class Rig {
     this.emoteName = null; this.emoteT = 0;
     this.k = {};
     this.trail = trailColor ? new Trail(trailColor, scene) : null;
+  }
+  // ears, buns, a tiara or an antenna the hat would swallow are tucked under it (both ears at once),
+  // the way hats work on animal characters; a hat that doesn't touch them leaves them alone
+  tuckUnderHat(hat) {
+    this.root.updateMatrixWorld(true);
+    const inHat = new Set(); hat.traverse(o => inHat.add(o));
+    const hatMeshes = [], hatVols = [];
+    hat.traverse(o => { if (o.isMesh) { hatMeshes.push(o); const v = ellipsoid(o, 0.02); if (v) hatVols.push(v); } });
+    for (const re of [/^Ear/, /^Bun/, /^Tiara/, /^Antenna/]) {
+      const group = []; (this.parts.head || this.model).traverse(o => { if (o.isMesh && !inHat.has(o) && re.test(o.name)) group.push(o); });
+      const clash = m => hatVols.some(v => sinksInto(m, v)) || hatMeshes.some(h => { const v = ellipsoid(m, 0.02); return v && sinksInto(h, v); });
+      if (group.some(clash)) for (const m of group) m.visible = false;
+    }
   }
   emote(name = this.meta.emote) { this.emoteName = name; this.emoteT = 0; }
   get emoting() { return !!this.emoteName; }
@@ -77,7 +97,7 @@ export class Rig {
     if (mode === 'menu') {
       // face the camera, breathe, sway a little; the player can drag to turn
       const breathe = Math.sin(t * 2);
-      k.armL = 0.05; k.armR = -0.05; k.armLx = -0.12 - breathe * 0.05; k.armRx = 0.12 + breathe * 0.05;
+      k.armL = 0.05; k.armR = 0.05; k.armLx = k.armRx = 0.12 + breathe * 0.05;
       k.head = Math.sin(t * 1.3) * 0.06; k.y = Math.abs(Math.sin(t * 2)) * 0.02; k.tail = Math.sin(t * 3) * 0.3;
       yaw = -Math.PI / 2 + this.facingOffset + Math.sin(t * 0.7) * 0.18 + this.turn;
     } else {
@@ -87,11 +107,11 @@ export class Rig {
       this.yaw = damp(this.yaw, targetYaw, 14, dt);
       yaw = this.yaw;
       let legA = 0, armA = 0, lean = 0, armOut = 0;
-      if (b.pound) { legA = 0.9; armA = -2.2; }
+      if (b.pound) { legA = 0.9; armOut = 2.3; }                          // arms up for the slam
       else if (b.dash > 0) { lean = -0.5; legA = 0.6; armA = -1.0; }
       else if (!b.onGround) {
         if (b.gliding) { armOut = 1.4; legA = 0.25; lean = -0.15; }
-        else if (b.sliding) { armA = -2.4; legA = 0.3; lean = 0.15; }
+        else if (b.sliding) { armOut = 1.9; legA = 0.3; lean = 0.15; }      // hands up on the wall
         else { legA = b.vy > 0 ? 0.7 : 0.35; armA = b.vy > 0 ? -1.2 : -0.6; }
       } else if (speed > 0.2) {
         this.phase += dt * (6 + speed * 1.6);
@@ -99,12 +119,12 @@ export class Rig {
         armA = -legA * 0.8; lean = -Math.min(0.18, speed * 0.025);
       } else this.phase = 0;
       k.legL = legA; k.legR = b.onGround && speed > 0.2 ? -legA : -legA * 0.4;
-      k.armL = armA; k.armR = -armA; k.armLx = -armOut; k.armRx = armOut;
-      k.lean = lean * (b.facing > 0 ? 1 : -1);
+      k.armL = armA; k.armR = -armA; k.armLx = k.armRx = armOut;
+      k.lean = lean;                                                        // the model is already turned to face its way
       k.head = b.onGround ? Math.sin(this.phase * 2) * 0.04 : 0.08;
       k.tail = Math.sin(t * 6 + this.phase) * 0.35;
       k.y = b.onGround && speed > 0.2 ? Math.abs(Math.sin(this.phase)) * 0.06 : 0;
-      if (b.pound && b.poundHang > 0) k.flip = (1 - b.poundHang / P.poundHang) * Math.PI * 2 * (b.facing > 0 ? -1 : 1);   // a quick flip before the drop
+      if (b.pound && b.poundHang > 0) k.flip = -(1 - b.poundHang / P.poundHang) * Math.PI * 2;   // a quick front flip before the drop
     }
     // a signature emote overrides the pose while it plays
     if (this.emoteName) {
@@ -118,20 +138,23 @@ export class Rig {
     p.legR && (p.legR.rotation.z = damp(p.legR.rotation.z, k.legR, s, dt));
     p.armL && (p.armL.rotation.z = damp(p.armL.rotation.z, k.armL, s, dt));
     p.armR && (p.armR.rotation.z = damp(p.armR.rotation.z, k.armR, s, dt));
-    p.armL && (p.armL.rotation.x = damp(p.armL.rotation.x, k.armLx, s, dt));
-    p.armR && (p.armR.rotation.x = damp(p.armR.rotation.x, k.armRx, s, dt));
+    p.armL && (p.armL.rotation.x = damp(p.armL.rotation.x, k.armLx, s, dt));     // left: + turns outward
+    p.armR && (p.armR.rotation.x = damp(p.armR.rotation.x, -k.armRx, s, dt));    // right: mirrored
     p.head && (p.head.rotation.z = damp(p.head.rotation.z, k.head, 10, dt));
     p.tail && (p.tail.rotation.x = damp(p.tail.rotation.x, k.tail, 12, dt));
     this.model.rotation.y = yaw + k.spin;
     this.lean = damp(this.lean || 0, k.lean, 12, dt);
-    this.model.rotation.z = k.flip || this.lean;
+    this.model.rotation.z = this.lean;
+    // somersaults happen in the screen plane: backflip = away from where you face
+    this.flipper.rotation.z = k.flip * (b && b.facing < 0 ? -1 : 1);
 
     // squash & stretch
     if (b?.landed) this.squash = 0.78;
     if (b?.jumped) { this.squash = 1.18; b.jumped = null; }
     this.squash = damp(this.squash, 1, 10, dt);
     this.model.scale.set(1 / Math.sqrt(this.squash), this.squash, 1 / Math.sqrt(this.squash));
-    this.model.position.y = damp(this.model.position.y, k.y, 20, dt);
+    this.bob = damp(this.bob || 0, k.y, 20, dt);
+    this.model.position.y = -PIVOT + this.bob;
 
     if (b) {
       this.root.position.set(b.x, b.y, 0);
@@ -152,6 +175,27 @@ export class Rig {
   // where a speech bubble should point
   headWorld(v) { (this.parts.head || this.model).getWorldPosition(v); v.y += 0.85; return v; }
   dispose() { this.trail?.dispose(); }
+}
+
+// a mesh's volume as the ellipsoid inside its local bounding box (good enough for rounded toy parts)
+function ellipsoid(mesh, minSize) {
+  mesh.geometry.computeBoundingBox();
+  const bb = mesh.geometry.boundingBox, s = bb.getSize(new THREE.Vector3());
+  if (Math.min(s.x, s.y, s.z) < minSize) return null;
+  return { mesh, c: bb.getCenter(new THREE.Vector3()), h: s.multiplyScalar(0.46) };
+}
+const _p = new THREE.Vector3(), _toLocal = new THREE.Matrix4();
+// do several of this mesh's vertices sit well inside that volume?
+function sinksInto(mesh, vol) {
+  const pos = mesh.geometry.attributes.position;
+  _toLocal.copy(vol.mesh.matrixWorld).invert().multiply(mesh.matrixWorld);
+  let n = 0;
+  for (let i = 0; i < pos.count; i++) {
+    _p.fromBufferAttribute(pos, i).applyMatrix4(_toLocal);
+    const dx = (_p.x - vol.c.x) / vol.h.x, dy = (_p.y - vol.c.y) / vol.h.y, dz = (_p.z - vol.c.z) / vol.h.z;
+    if (dx * dx + dy * dy + dz * dz < 0.884 && ++n > 1) return true;     // deeper than ~6% of the volume
+  }
+  return false;
 }
 
 class Trail {

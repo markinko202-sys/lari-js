@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 const CORE = ['characters', 'hats', 'common', 'enemies', 'items', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
 const LATER = ['kit_beach', 'kit_cave', 'kit_kota'];
-const VERSION = '4';
+const VERSION = '5';
 export const lib = {};
 
 const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/gltf/');
