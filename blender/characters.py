@@ -37,14 +37,15 @@ def character(cid, x0, c):
     # head (pivot at neck)
     head = empty("Head", P(0, 0, 1.04), root)
     hshape = c.get("head", "round")
+    head_mat = mat(f"{cid}_head", c["head_col"], rough=0.7) if c.get("head_col") else skin
     if hshape == "box":
-        rbox("HeadMesh", (0.56, 0.58, 0.50), P(0, 0, 1.32), skin, head, bevel=0.10)
-    else:
-        ball("HeadMesh", 0.32, P(0, 0, 1.33), skin, head, scale=(1, 1.02, 0.95), seg=32, rings=18)
+        rbox("HeadMesh", (0.56, 0.58, 0.50), P(0, 0, 1.32), head_mat, head, bevel=0.10)
+    elif hshape == "round":
+        ball("HeadMesh", 0.32, P(0, 0, 1.33), head_mat, head, scale=(1, 1.02, 0.95), seg=32, rings=18)
+    # ("custom" heads — the astronaut's helmet — are built with the extras below)
     # eyes on the front (+X), spread so they read when the body turns toward the camera
-    if c.get("visor"):
-        ball("Visor", 0.25, P(0.13, 0, 1.33), mat(f"{cid}_visor", c["visor"], rough=0.08, metal=0.6, coat=1.0), head,
-             scale=(0.55, 1.0, 0.8), seg=32, rings=16)
+    if c.get("custom_face"):
+        pass
     elif c.get("led"):
         for y in (0.11, -0.11):
             rbox(f"LED{y}", (0.04, 0.11, 0.07), P(0.285, y, 1.35), mat(f"{cid}_led", c["led"], emit=6.0), head, bevel=0.015)
@@ -58,7 +59,7 @@ def character(cid, x0, c):
                 ball(f"Blush{y}", 0.04, P(0.24, y, 1.25), mat(f"{cid}_blush", c["blush"], rough=0.8), head, scale=(0.4, 1, 0.6))
         if cid != "kenyalang":
             ball("Mouth", 0.03, P(0.3, 0, 1.22), mat("mouth", "#5a2130", rough=0.5), head, scale=(0.4, 1.4, 0.6))
-    hat_anchor = empty("HatAnchor", P(0, 0, 1.6), head)
+    hat_anchor = empty("HatAnchor", P(0, 0, c.get("hat_z", 1.6)), head)
 
     # per-character extras
     if cid == "coder":
@@ -102,13 +103,56 @@ def character(cid, x0, c):
         rbox("Grille", (0.03, 0.18, 0.06), P(0.285, 0, 1.2), metal, head, bevel=0.01)
         rbox("ChestScreen", (0.03, 0.26, 0.16), P(0.225, 0, 0.83), mat("robot_screen", "#1ec8c8", emit=3.0), body, bevel=0.02)
     elif cid == "ninja":
+        # a full hood-mask (the head itself is dark) with a slit of face for the eyes
         band = mat("ninja_band", "#c8312b", rough=0.6)
-        rbox("MaskBand", (0.62, 0.66, 0.15), P(0.02, 0, 1.2), mat("ninja_mask", "#1b1a20", rough=0.7), head, bevel=0.05)
-        rbox("Headband", (0.67, 0.68, 0.07), P(0, 0, 1.48), band, head, bevel=0.02)
-        limb("BandTail1", P(-0.33, 0, 1.48), P(-0.55, 0.05, 1.38), 0.025, band, head)
-        limb("BandTail2", P(-0.33, 0, 1.48), P(-0.52, -0.06, 1.33), 0.025, band, head)
+        steel = mat("ninja_steel", "#c9ced4", rough=0.25, metal=0.9)
+        ball("EyeSlit", 0.12, P(0.245, 0, 1.365), skin, head, scale=(0.75, 2.05, 0.6), seg=32, rings=16)
+        for y in (0.095, -0.095):
+            ball(f"EyeW{y}", 0.05, P(0.31, y, 1.37), white, head, scale=(0.5, 1.15, 0.85))
+            ball(f"Pupil{y}", 0.03, P(0.333, y * 1.02, 1.365), dark, head, scale=(0.5, 1, 1.1))
+            ball(f"Shine{y}", 0.009, P(0.346, y * 1.02 - 0.008, 1.38), white, head)
+            rbox(f"Brow{y}", (0.03, 0.1, 0.022), P(0.31, y * 1.05, 1.425), dark, head, bevel=0.008,
+                 rot=(math.radians(-18 if y > 0 else 18), 0, 0))
+        # the red headband hugs the forehead: a steel plate in front, a knot and two tails behind
+        torus("Headband", 0.292, 0.038, P(0.0, 0, 1.475), band, head, seg=40)
+        rbox("BandPlate", (0.03, 0.18, 0.08), P(0.302, 0, 1.475), steel, head, bevel=0.012)
+        rbox("BandPlateMark", (0.008, 0.07, 0.012), P(0.319, 0, 1.475), dark, head)
+        ball("BandKnot", 0.055, P(-0.282, 0, 1.47), band, head)
+        limb("BandTail1", P(-0.3, 0.02, 1.47), P(-0.53, 0.09, 1.32), 0.026, band, head, r2=0.017)
+        limb("BandTail2", P(-0.3, -0.02, 1.47), P(-0.5, -0.1, 1.27), 0.026, band, head, r2=0.017)
+        # gi: a crossed collar on the chest, the sash, and a short katana slung across the back
+        lapel = mat("ninja_lapel", "#4a4858", rough=0.7)
+        rbox("LapelL", (0.02, 0.06, 0.32), P(0.222, 0.06, 0.88), lapel, body, rot=(math.radians(-28), 0, 0))   # a V from the shoulders
+        rbox("LapelR", (0.02, 0.06, 0.32), P(0.224, -0.06, 0.88), lapel, body, rot=(math.radians(28), 0, 0))
         rbox("Sash", (0.46, 0.52, 0.07), P(0, 0, 0.6), band, body, bevel=0.03)
+        limb("Sheath", P(-0.25, 0.22, 0.6), P(-0.25, -0.2, 1.12), 0.035, mat("ninja_sheath", "#3a2a22", rough=0.5), body)
+        ball("SwordGuard", 0.055, P(-0.25, -0.2, 1.12), mat("ninja_guard", "#c9a24a", rough=0.3, metal=0.8), body, scale=(0.35, 1, 1))
+        limb("SwordHilt", P(-0.25, -0.2, 1.12), P(-0.25, -0.27, 1.27), 0.028, band, body)
     elif cid == "astro":
+        # a bubble helmet: a white shell with a window cut out, a tinted glass visor, and a face inside
+        face = mat("astro_face", c["skin"], rough=0.55)
+        ball("HeadMesh", 0.25, P(0.02, 0, 1.34), face, head, seg=32, rings=16)
+        for y in (0.085, -0.085):
+            ball(f"EyeW{y}", 0.055, P(0.215, y, 1.37), white, head, scale=(0.55, 1, 1.15))
+            ball(f"Pupil{y}", 0.031, P(0.245, y * 1.03, 1.365), dark, head, scale=(0.6, 1, 1.2))
+            ball(f"Shine{y}", 0.01, P(0.262, y * 1.03 - 0.009, 1.385), white, head)
+            ball(f"Blush{y}", 0.03, P(0.2, y * 1.9, 1.28), mat("astro_blush", "#e8907a", rough=0.8), head, scale=(0.4, 1, 0.6))
+        ball("Mouth", 0.02, P(0.255, 0, 1.27), mat("mouth", "#5a2130", rough=0.5), head, scale=(0.4, 1.4, 0.6))
+        shell = ball("Helmet", 0.36, P(0, 0, 1.36), mat("astro_helmet", "#f4f4f0", rough=0.35, coat=0.6), head, seg=48, rings=28)
+        cutter = ball("HelmetCut", 0.27, P(0.2, 0, 1.37), None, None, scale=(0.85, 0.95, 0.8), seg=48, rings=28)
+        cut = shell.modifiers.new("window", 'BOOLEAN'); cut.operation = 'DIFFERENCE'; cut.object = cutter
+        lib.apply_mods(shell)
+        bpy.data.objects.remove(cutter, do_unlink=True)
+        ball("Visor", 0.265, P(0.19, 0, 1.37), mat("astro_glass", "#9fd8ff", rough=0.04, coat=1.0, alpha=0.3), head,
+             scale=(0.85, 0.95, 0.8), seg=48, rings=28)
+        torus("VisorRim", 0.262, 0.022, P(0.235, 0, 1.37), mat("astro_rim", "#d9a441", rough=0.25, metal=0.9), head,
+              rot=(0, math.radians(90), 0), seg=48)
+        for y in (0.36, -0.36):
+            cyl(f"HelmetPuck{y}", 0.075, 0.07, P(-0.03, y, 1.38), mat("astro_puck", "#bfc4c8", rough=0.3, metal=0.7), head,
+                rot=(math.radians(90), 0, 0))
+            ball(f"HelmetLamp{y}", 0.035, P(-0.03, y * 1.1, 1.38), mat("astro_lamp", "#4ff0ff", emit=4.0), head)
+        limb("AntennaAstro", P(-0.1, 0.2, 1.63), P(-0.15, 0.27, 1.86), 0.013, mat("astro_ant", "#bfc4c8", rough=0.3, metal=0.8), head)
+        ball("AntennaAstroTip", 0.032, P(-0.15, 0.27, 1.87), mat("astro_tip", "#ff5a3c", emit=4.0), head)
         suit = mat("astro_trim", "#e2702e", rough=0.6)
         rbox("O2Pack", (0.22, 0.44, 0.48), P(-0.29, 0, 0.82), mat("astro_pack", "#d9d6cf", rough=0.4), body, bevel=0.08)
         for z in (0.95, 0.66):
@@ -230,8 +274,10 @@ CHARS = {
     "coder":  dict(skin="#e9b48f", top="#2f8f86", bottom="#2b3550", shoe="#efe4cc", blush="#e8907a"),
     "kucing": dict(skin="#e8913a", top="#e8913a", bottom="#e8913a", shoe="#f6e7cf", hand="#f6e7cf", blush="#e99aa6"),
     "robot":  dict(skin="#b9c2cb", top="#9aa5b0", bottom="#6b7682", shoe="#3b4450", head="box", led="#4ff0ff", hand="#6b7682"),
-    "ninja":  dict(skin="#e3ad86", top="#26252d", bottom="#26252d", shoe="#15131a", belt="#c8312b"),
-    "astro":  dict(skin="#f2f2ee", top="#f2f2ee", bottom="#f2f2ee", shoe="#5a5f66", visor="#d9a441", hand="#d9d6cf"),
+    "ninja":  dict(skin="#e3ad86", top="#26252d", bottom="#26252d", shoe="#15131a", belt="#c8312b",
+                   head_col="#22202a", hand="#22202a", custom_face=True),
+    "astro":  dict(skin="#f0c29a", top="#f2f2ee", bottom="#f2f2ee", shoe="#5a5f66", hand="#d9d6cf",
+                   head="custom", custom_face=True, hat_z=1.72),
     # the girls
     "siti":   dict(skin="#d9a37e", top="#7b5cc4", bottom="#6a4db3", shoe="#efe4cc", blush="#e8907a", scarf="#e59bb5"),
     "mei":    dict(skin="#f2cba6", top="#e2382e", bottom="#2b3550", shoe="#fbfaf6", blush="#f09a8a", hair="#1d1a22"),

@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 const CORE = ['characters', 'hats', 'common', 'enemies', 'items', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
 const LATER = ['kit_beach', 'kit_cave', 'kit_kota'];
-const VERSION = '5';
+const VERSION = '6';
 export const lib = {};
 
 const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/gltf/');
@@ -19,9 +19,10 @@ function loadFile(f) {
       node.position.set(0, 0, 0);
       node.traverse(o => {
         if (o.isMesh) {
-          o.castShadow = true; o.receiveShadow = true;
           o.geometry.userData.lib = true;
           const m = o.material; m.userData.lib = true;
+          o.castShadow = !(m.transparent && m.opacity < 0.9);   // glass (the astronaut's visor) lets light through
+          o.receiveShadow = true;
           // glTF emissive strength comes through as emissiveIntensity; keep glows readable but not blown out
           if (m.emissiveIntensity > 1) m.emissiveIntensity = Math.min(m.emissiveIntensity, 3);
           if (m.transmission > 0) { m.transparent = true; m.opacity = 0.55; m.transmission = 0; m.roughness = 0.1; }

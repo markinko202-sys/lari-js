@@ -2,7 +2,7 @@
 // small picture (a second, tiny WebGL renderer), cached as a data URL. Trails are drawn in 2D.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { make } from './assets.js?v=7';
+import { make } from './assets.js?v=8';
 
 const SIZE = 192;
 const cache = new Map();

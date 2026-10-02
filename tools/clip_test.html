@@ -19,9 +19,9 @@
 // Poses every rig through the same targets the game uses and checks whether arm vertices end up inside
 // the head/hair/torso/hat volumes (each approximated by the ellipsoid inscribed in its local bounding box).
 import * as THREE from 'three';
-import { loadAll, byName } from './js/assets.js?v=7';
-import { Rig, CHAR_META, EMOTES, EMOTE_TIME } from './js/actors.js?v=7';
-import { SHOP } from './js/save.js?v=7';
+import { loadAll, byName } from './js/assets.js?v=8';
+import { Rig, CHAR_META, EMOTES, EMOTE_TIME } from './js/actors.js?v=8';
+import { SHOP } from './js/save.js?v=8';
 
 const out = document.getElementById('out');
 const LIMIT = +(new URLSearchParams(location.search).get('limit') || 0.06);   // how deep (0…1 of the volume) counts as clipping

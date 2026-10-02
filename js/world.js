@@ -1,9 +1,9 @@
 // Builds the 3D scene for a level (or the menu showroom / KL finale) from level data + Blender kits.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { make, instance } from './assets.js?v=7';
-import { T } from './physics.js?v=7';
-import { buildLevel } from './levels.js?v=7';
+import { make, instance } from './assets.js?v=8';
+import { T } from './physics.js?v=8';
+import { buildLevel } from './levels.js?v=8';
 
 export const THEMES = {
   village: {

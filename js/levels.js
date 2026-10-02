@@ -3,7 +3,7 @@
 // Every number below stays inside the reach measured with QUICK TAPS (tools/reach.mjs), so the
 // route always works on a phone:  tap jump ≈ 1.9 up / 4.5 across · double ≈ 3.6 / 7.8 · dash ≈ 12 · glide ≈ 22.
 // tools/check_levels.mjs then proves each level is beatable and every power gate is unskippable.
-import { T } from './physics.js?v=7';
+import { T } from './physics.js?v=8';
 
 export const H = 20;
 
