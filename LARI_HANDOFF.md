@@ -14,16 +14,17 @@
 
 | Что | Где |
 |---|---|
-| Живая игра | https://lari-js.vercel.app (Vercel, проект `lari-js`, аккаунт `dzay`) — **там ещё старая версия**, новая не задеплоена |
+| Живая игра | **https://markinko202-sys.github.io/lari-js/** (GitHub Pages из `main`, корень) |
+| GitHub | https://github.com/markinko202-sys/lari-js (публичный; ссылка на игру — в поле Website и в README) |
+| Старый деплой | https://lari-js.vercel.app — первая версия, больше не обновляется |
 | Папка | `~/Desktop/видос/lari-js/` (git, ветка `main`) |
-| GitHub | **не выложено** (только локальный git + Vercel) |
 | Локальное превью | launch-конфиг `lari` в `~/Desktop/видос/.claude/launch.json` → http://localhost:5190 (`tools/devserver.py`, без кэша) |
 | Отладка | `http://localhost:5190/?debug` → `window.__lari` (`run`, `state`, `world`, `rig`, `profile`, `startLevel(i)`, `show(screen)`, `tp(x)`, `learn(...ids)`, `coins(n)`, `keys`, `edges`) |
 | Blender | 5.2.2 на SSD: `/Volumes/KINGSTON/Applications/Blender.app`, CLI `blender` (Homebrew-обёртка). **Работает только когда SSD KINGSTON подключён.** |
 
-**Деплой:** `cd ~/Desktop/видос/lari-js && vercel --prod --yes --name lari-js`. Исключения в `.vercelignore`: `renders`, `blender`, `tools`, `.claude`. Публиковать только по команде пользователя.
+**Деплой:** `git push` в `main` — GitHub Pages пересобирает сайт сам (≈1 мин; кэш Pages ≈10 мин). `.nojekyll` в корне обязателен. Публиковать только по команде пользователя.
 
-**Кэш:** при изменениях подними `?v=` у `css/game.css` и `js/main.js` в `index.html` (сейчас `4`), а при пересборке моделей — `VERSION` в `js/assets.js` (сейчас `'4'`).
+**Кэш:** при изменениях подними `?v=` у `css/game.css` и `js/main.js` в `index.html` (сейчас `5`), а при пересборке моделей — `VERSION` в `js/assets.js` (сейчас `'4'`).
 
 ## Технологии
 

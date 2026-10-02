@@ -88,10 +88,10 @@ export const STR = {
     ms: '<b>Enjin</b> Three.js + modul fizik platform buatan sendiri, dibuktikan boleh ditamatkan melalui ujian Node',
   },
   factSound: {
-    en: '<b>Sound</b> 11 soundtracks and every effect synthesised live with the Web Audio API',
-    ru: '<b>Звук</b> 11 саундтреков и все эффекты синтезируются вживую через Web Audio API',
-    zh: '<b>声音</b> 11 首配乐和所有音效都由 Web Audio API 实时合成',
-    ms: '<b>Bunyi</b> 11 runut bunyi dan semua kesan disintesis secara langsung dengan Web Audio API',
+    en: '<b>Sound</b> 10 soundtracks and every effect synthesised live with the Web Audio API',
+    ru: '<b>Звук</b> 10 саундтреков и все эффекты синтезируются вживую через Web Audio API',
+    zh: '<b>声音</b> 10 首配乐和所有音效都由 Web Audio API 实时合成',
+    ms: '<b>Bunyi</b> 10 runut bunyi dan semua kesan disintesis secara langsung dengan Web Audio API',
   },
   factDesign: {
     en: '<b>Design</b> every life lesson you learn literally becomes a power — in four languages',

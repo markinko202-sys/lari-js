@@ -2,3 +2,4 @@
 renders/
 *.blend1
 .vercel
+__pycache__/

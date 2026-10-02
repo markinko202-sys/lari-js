@@ -70,8 +70,9 @@ em { font-style: italic; }
 .btn:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 0 var(--ink); }
 .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
 .btn.primary { background: var(--coral); color: var(--paper); text-shadow: 0 2px 0 rgba(0,0,0,.25); }
-.btn.ghost { background: transparent; color: var(--cream); border-color: var(--cream); box-shadow: 0 5px 0 rgba(246,236,215,.35); }
-.btn.ghost.dark, .card .btn.ghost, .panel .btn.ghost { color: var(--ink); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+.btn.ghost { background: rgba(23,20,31,.45); color: var(--cream); border-color: var(--cream); box-shadow: 0 5px 0 rgba(246,236,215,.35); }
+.btn.ghost.dark, .card .btn.ghost, .panel .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+.card .menu:not(.row) { width: 100%; grid-template-columns: 1fr; }
 .btn.small { font-size: 16px; padding: 8px 14px; min-height: 40px; border-radius: 11px; }
 .btn:disabled { opacity: .45; pointer-events: none; }
 .btn:focus-visible, .tabs button:focus-visible, .seg button:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
@@ -104,7 +105,10 @@ em { font-style: italic; }
 .lvl .learn i { font-style: normal; color: var(--teal); font-weight: 700; }
 .lvl .learn code { background: var(--ink); color: var(--mint); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
 .lvl .stars { font-size: 20px; letter-spacing: 3px; }
-.lvl .lock { position: absolute; inset: 0; background: rgba(23,20,31,.72); border-radius: 15px; display: grid; place-items: center; color: var(--cream); font-family: var(--f-title); font-size: 20px; text-align: center; padding: 20px; }
+/* a locked level keeps its picture and name; a band across the bottom says what unlocks it */
+.lvl:disabled { filter: saturate(.35) brightness(.9); }
+.lvl:disabled .learn, .lvl:disabled .stars { visibility: hidden; }
+.lvl .lock { position: absolute; left: 0; right: 0; bottom: 0; min-height: 44%; background: rgba(23,20,31,.92); border-radius: 0 0 15px 15px; display: grid; place-items: center; color: var(--cream); font-family: var(--f-title); font-weight: var(--title-w); font-size: 18px; line-height: 1.15; text-align: center; padding: 12px; }
 .diff-line { text-align: center; margin-top: 26px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
 
 /* shop */
@@ -275,6 +279,24 @@ em { font-style: italic; }
   .menu { grid-template-columns: 1fr 1fr; width: 100%; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
+  .lvl .lock { font-size: 13px; padding: 8px; }
+  .screen-head h2 { font-size: 26px; }
+  /* phone on its side: a narrower shop so the stage on the right stays visible */
+  .shop { width: min(470px, 58vw); bottom: calc(10px + var(--safe-b)); }
+  .shop-grid { max-height: calc(100vh - 150px); grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  .item .thumb { height: 58px; }
+  .item p { display: none; }
+  /* the gate as two columns: the lesson on the left, the question on the right */
+  .card.quiz { width: min(860px, 100%); display: grid; grid-template-columns: 1fr 1.2fr; column-gap: 20px; align-items: start; }
+  .card.quiz > :not(.q) { grid-column: 1; }
+  .card.quiz > .q { grid-column: 2; grid-row: 1 / span 4; border-top: 0; margin-top: 0; padding-top: 0; border-left: 2px dashed #cfc3a8; padding-left: 18px; }
+  .card.quiz h3 { font-size: 24px; }
+  #quiz-body { font-size: 13px; margin: 4px 0; }
+  .quiz .tip { padding: 8px 12px; margin: 6px 0; }
+  .quiz .tip p { font-size: 13px; }
+  .q-question { font-size: 15px; margin-top: 4px; }
+  .options { grid-template-columns: 1fr; gap: 6px; margin-top: 6px; }
+  .options button { min-height: 36px; padding: 6px 10px; font-size: 13px; box-shadow: 0 3px 0 var(--ink); }
   .title-col { top: 50%; bottom: auto; transform: translateY(-50%); }
   .logo.big { font-size: 64px; }
   .tag { margin: 8px 0 12px; font-size: 14px; }
@@ -289,6 +311,12 @@ em { font-style: italic; }
   .touch button.jump { width: 72px; height: 72px; }
 }
 @media (max-width: 560px) {
+  .screen-head { gap: 10px; }
+  .screen-head h2 { font-size: 22px; line-height: 1.05; }
+  .lvl { padding: 10px; }
+  .lvl .lock { font-size: 14px; padding: 10px; }
+  .lvl h3 { font-size: 18px; }
+  .seg.langs { grid-template-columns: 1fr 1fr; }
   .touch button { width: 64px; height: 64px; }
   .touch button.jump { width: 78px; height: 78px; }
   .touch button.small-btn { width: 50px; height: 50px; font-size: 19px; }

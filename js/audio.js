@@ -2,7 +2,7 @@
    LARI.js sound — everything is synthesised with Web Audio:
    no files to download, nothing to license.
 
-   Eleven soundtracks, each a small generative sequencer:
+   Ten soundtracks, each a small generative sequencer:
    · menu    — lo-fi Rhodes-ish chords, lazy drums (84 bpm)
    · village — night kampung: slendro bells, gong, crickets, bamboo flute (72 bpm)
    · forest  — marimba arpeggios, shaker, bouncy bass (116 bpm)
