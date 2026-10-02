@@ -3,7 +3,7 @@
 // Every number below stays inside the reach measured with QUICK TAPS (tools/reach.mjs), so the
 // route always works on a phone:  tap jump ≈ 1.9 up / 4.5 across · double ≈ 3.6 / 7.8 · dash ≈ 12 · glide ≈ 22.
 // tools/check_levels.mjs then proves each level is beatable and every power gate is unskippable.
-import { T } from './physics.js';
+import { T } from './physics.js?v=6';
 
 export const H = 20;
 
@@ -114,19 +114,24 @@ export function buildLevel(def, difficulty = 1) {
   // ---------------------------------------------------------------- chunks
   const chunks = {
     run() {
-      const n = ri(9, 15), x0 = x; groundRun(n);
-      B.coins(x0 + 2, h + 1, ri(3, 5));
-      walker(x0 + Math.floor(n / 2), h, 3);
-      if (r() < D.enemies - 0.6) walker(x0 + n - 3, h, 2);
-      if (r() < 0.6) {       // a Mario row of cubes with a { } block — bump it from below
-        const bx = x0 + ri(2, n - 6), by = h + 3, len = ri(3, 5);
+      const n = ri(10, 15), x0 = x; groundRun(n);
+      if (r() < 0.6) {
+        // a Mario row of cubes with a { } block: bump it from below — or climb the steps and run along the top
+        const len = ri(3, 5), bx = x0 + ri(4, n - len - 1), by = h + 3;
+        for (let k = 1; k <= 3; k++) B.bricks(bx - 4 + k, h, 1, k);            // steps 1-2-3 up to the row
         for (let i = 0; i < len; i++) {
           if (i === Math.floor(len / 2)) B.block(bx + i, by, r() < 0.06 ? 'star' : r() < 0.18 * D.hearts ? 'heart' : 'coin');
           else B.bricks(bx + i, by);
         }
-        B.coins(bx, by + 1, len);
-      } else if (r() < 0.35) {
-        B.hidden(x0 + ri(3, n - 4), h + 3, surprise());   // nothing there… until you jump into it
+        B.coins(bx, by + 1, len);                                                  // up top: the reward for climbing
+        B.coins(bx, h + 1, len);                                                   // underneath: the easy ones
+        walker(bx + Math.floor(len / 2), h, Math.max(1, len / 2 - 0.5));           // patrols under the row
+        if (r() < D.enemies - 0.6) walker(x0 + n - 2, h, 1);
+      } else {
+        B.coins(x0 + 2, h + 1, ri(3, 5));
+        walker(x0 + Math.floor(n / 2), h, 3);
+        if (r() < D.enemies - 0.6) walker(x0 + n - 3, h, 2);
+        if (r() < 0.35) B.hidden(x0 + ri(3, n - 4), h + 3, surprise());          // nothing there… until you jump into it
       }
     },
     gap() {
@@ -230,13 +235,15 @@ export function buildLevel(def, difficulty = 1) {
       const n = ri(14, 20), x0 = x; groundRun(n);
       if (th.charger) { enemy({ type: th.charger, x: x0 + n - 3, y: h, range: n - 6 }); enemy({ type: th.charger, x: x0 + n - 7, y: h, range: n - 8 }, false); }
       if (th.hanger) { enemy({ type: th.hanger, x: x0 + 6.5, y: h + 5, drop: 4 }); enemy({ type: th.hanger, x: x0 + 12.5, y: h + 5, drop: 4 }, false); }
-      if (th.shell) { enemy({ type: th.shell, x: x0 + 5.5, y: h, range: 3 }); walker(x0 + 12, h, 2); }
+      if (th.shell) { enemy({ type: th.shell, x: x0 + 5.5, y: h, range: 3 }); walker(x0 + n - 7, h, 2); }
       if (th.dropper) { enemy({ type: th.dropper, x: x0 + 7.5, y: h + 6, floor: h }); enemy({ type: th.dropper, x: x0 + 11.5, y: h + 6, floor: h }, false); }
-      if (th.walker === 'crab' || th.walker === 'ketam') { enemy({ type: th.walker, x: x0 + 6.5, y: h, range: 4 }); enemy({ type: th.walker, x: x0 + 13.5, y: h, range: 3 }, false); }
-      if (th.walker === 'robovac') enemy({ type: 'robovac', x: x0 + 9.5, y: h, range: 5 });
+      if (th.walker === 'crab' || th.walker === 'ketam') { enemy({ type: th.walker, x: x0 + 5.5, y: h, range: 4 }); enemy({ type: th.walker, x: x0 + n - 6.5, y: h, range: 3 }, false); }
+      if (th.walker === 'robovac') enemy({ type: 'robovac', x: x0 + Math.floor(n / 2) + 0.5, y: h, range: 4 });
       if (th.flyer) enemy({ type: th.flyer, x: x0 + n / 2, y: h + 3.5, range: 3, axis: 'x' }, false);
       B.coins(x0 + 3, h + 3, n - 6);
-      B.bricks(x0 + 4, h + 2, 2); B.bricks(x0 + n - 6, h + 2, 2);
+      // a little cube hill at each end to hop up on (coins overhead are in jumping reach from there)
+      B.bricks(x0 + 3, h, 1, 1); B.bricks(x0 + 4, h, 1, 2);
+      B.bricks(x0 + n - 5, h, 1, 1); B.bricks(x0 + n - 4, h, 1, 2);             // both climb 1 → 2 from the left, then drop off
     },
   };
   const weights = { run: 3, gap: 3, step: 2, pyramid: 2, bridge: 2, climb: 2, spikes: 2, spring: 1, descend: 1, special: 2 };
@@ -314,7 +321,9 @@ export function buildLevel(def, difficulty = 1) {
     groundRun(4); checkpoint(); groundRun(4);
     const ax = x, W = 24;
     groundRun(W);
+    // two ledges to stomp from, each with a spring beside it to get up there
     B.bricks(ax + 5, h + 3, 2); B.bricks(ax + W - 7, h + 3, 2);
+    B.ent({ type: 'spring', x: ax + 3.5, y: h }); B.ent({ type: 'spring', x: ax + W - 3.5, y: h });
     B.ent({ type: 'boss', kind: def.boss, x: ax + W * 0.7, y: h, xmin: ax + 1.5, xmax: ax + W - 1.5, x0: ax });
     const gx = x;
     for (let y = h; y < H; y++) B.set(gx, y, T.BARRIER);

@@ -1,5 +1,5 @@
 // Four languages. t('key', {vars}) for interface strings; static HTML is tagged with data-i18n attributes.
-import { STR } from './text.js';
+import { STR } from './text.js?v=6';
 
 export const LANGS = [
   { id: 'en', name: 'English' },

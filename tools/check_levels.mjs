@@ -1,7 +1,8 @@
 // Proves, with the real game physics, for every level × difficulty:
 //   1. the goal is reachable with the skills you have at each point (code gates opened as you answer them);
 //   2. right after the power gate, the "proof" obstacle can NOT be crossed without the new power;
-//   3. jumps are planned as quick taps, so the route also works with touch controls.
+//   3. jumps are planned as quick taps, so the route also works with touch controls;
+//   4. every surface you can stand on (cube rows, ledges, platforms) can actually be reached — nothing is just out of reach.
 // It builds a graph of every standable span (ground, cube tops, blocks) and simulates jumps between them.
 //   node tools/check_levels.mjs [--verbose]
 import { makeBody, step, T, solid, P, overlapsHazard } from '../js/physics.js';
@@ -26,19 +27,24 @@ export function spans(grid) {
 }
 
 // try to get from span a to span b; springs give a boost; spikes/lava/pits fail the attempt
-export function crossable(grid, springs, a, b, skills) {
+// `thorough` adds the slow, human-ish strategies (short hops onto narrow spots, long walks to an edge)
+export function crossable(grid, springs, a, b, skills, thorough = false) {
   const dir = b.x0 >= a.x1 ? 1 : b.x1 <= a.x0 ? -1 : 0;
   const starts = [];
   if (dir === 1) starts.push(a.x1 - 0.35, a.x1 - 1.5, a.x1 - 3);
   else if (dir === -1) starts.push(a.x0 + 0.35, a.x0 + 1.5, a.x0 + 3);
-  else { // overlapping in x: jump straight up/down from under the target's edges
-    for (const x of [b.x0 + 0.5, b.x1 - 0.5, (b.x0 + b.x1) / 2, b.x0 - 0.6, b.x1 + 0.6]) if (x > a.x0 + 0.3 && x < a.x1 - 0.3) starts.push(x);
+  else { // overlapping in x: jump straight up/down from under the target's edges, or walk off either end
+    for (const x of [b.x0 + 0.5, b.x1 - 0.5, (b.x0 + b.x1) / 2, b.x0 - 0.6, b.x1 + 0.6, ...(thorough ? [a.x0 + 0.35, a.x1 - 0.35] : [])]) if (x > a.x0 + 0.3 && x < a.x1 - 0.3) starts.push(x);
   }
+  // a spring standing on this surface is a way up too
+  for (const s of springs) if (s.y === a.top && s.x > a.x0 && s.x < a.x1) starts.push(s.x);
   const moves = dir === 0 ? [1, -1, 0] : [dir];
   if (skills.wall && wallClimb(grid, a, b, starts, moves)) return true;
   const dbl = skills.double ? [null, 18, 30, 42, 54] : [null];
   const dsh = skills.dash ? [null, 25, 45, 65] : [null];
-  for (const sx of starts) for (const mv of moves) for (const mode of ['edge', 'early', 'now', 'walk']) for (const d2 of (mode === 'walk' ? [null] : dbl)) for (const ds of dsh) {
+  // a narrow target (a cube step, a safe spot between spikes): a player lets go of the arrow mid-jump so they don't overshoot it
+  const rels = thorough && b.x1 - b.x0 <= 4 ? [null, 8, 16, 26] : [null];
+  for (const sx of starts) for (const mv of moves) for (const mode of ['edge', 'early', 'now', 'walk']) for (const d2 of (mode === 'walk' ? [null] : dbl)) for (const ds of dsh) for (const rel of (mode === 'walk' ? [null] : rels)) {
     const jumpFirst = mode === 'now';
     const body = makeBody(sx, a.top);
     for (let k = 0; k < 3; k++) step(body, {}, grid, skills, dt);   // settle onto the ground first
@@ -55,6 +61,7 @@ export function crossable(grid, springs, a, b, skills) {
         if (d2 !== null && t === d2) inp.jumpPressed = true;
         if (ds !== null && t === ds) inp.dashPressed = true;
         if (mv === 0) { inp.right = b.x0 + 0.5 > body.x; inp.left = b.x1 - 0.5 < body.x; }
+        if (rel !== null && t >= rel) inp.right = inp.left = false;
       }
       step(body, inp, grid, skills, dt);
       for (const s of springs) if (body.vy <= 0 && Math.abs(body.x - s.x) < 0.7 && body.y >= s.y - 0.05 && body.y < s.y + 0.6) { body.vy = P.springV; body.y = s.y + 0.62; body.springing = true; body.onGround = false; body.coyote = 0; body.jumpsUsed = 1; }
@@ -63,7 +70,7 @@ export function crossable(grid, springs, a, b, skills) {
       if (body.onGround && f - jf > 2) {
         if (Math.abs(body.y - b.top) < 0.01 && body.x + body.w / 2 > b.x0 && body.x - body.w / 2 < b.x1) return true;
         if (!(Math.abs(body.y - a.top) < 0.01 && body.x + body.w / 2 > a.x0 && body.x - body.w / 2 < a.x1)) break;
-        if (f - jf > 20) break;
+        if (jumped ? f - jf > 20 : f > (thorough ? 300 : 20)) break;   // thorough: keep walking along the start surface to its edge
       }
     }
   }
@@ -96,15 +103,28 @@ function wallClimb(grid, a, b, starts, moves) {
 }
 
 function reach(grid, springs, sp, startSpan, skillsAt) {
-  const seen = new Set([startSpan.id]), queue = [startSpan];
-  while (queue.length) {
-    const a = queue.shift();
-    const sk = skillsAt(a);
+  const seen = new Set([startSpan.id]);
+  const near = (a, b, sk) => {
+    const gapX = b.x0 >= a.x1 ? b.x0 - a.x1 : a.x0 >= b.x1 ? a.x0 - b.x1 : 0;
+    return !(gapX > (sk.glide ? 24 : sk.dash ? 14 : 10) || b.top - a.top > (sk.wall ? 11 : 6) || a.top - b.top > 14);
+  };
+  const flood = queue => {
+    while (queue.length) {
+      const a = queue.shift(), sk = skillsAt(a);
+      for (const b of sp) if (!seen.has(b.id) && near(a, b, sk) && crossable(grid, springs, a, b, sk)) { seen.add(b.id); queue.push(b); }
+    }
+  };
+  flood([startSpan]);
+  // what the quick strategies missed gets the slow ones, then the quick flood carries on from there
+  for (let changed = true; changed;) {
+    changed = false;
     for (const b of sp) {
       if (seen.has(b.id)) continue;
-      const gapX = b.x0 >= a.x1 ? b.x0 - a.x1 : a.x0 >= b.x1 ? a.x0 - b.x1 : 0;
-      if (gapX > (sk.glide ? 24 : sk.dash ? 14 : 10) || b.top - a.top > (sk.wall ? 11 : 6) || a.top - b.top > 14) continue;
-      if (crossable(grid, springs, a, b, sk)) { seen.add(b.id); queue.push(b); }
+      for (const a of sp) {
+        if (!seen.has(a.id)) continue;
+        const sk = skillsAt(a);
+        if (near(a, b, sk) && crossable(grid, springs, a, b, sk, true)) { seen.add(b.id); flood([b]); changed = true; break; }
+      }
     }
   }
   return seen;
@@ -148,6 +168,9 @@ for (const def of LEVELS) {
     // without the power, nothing past the proof obstacle may be reachable
     const noPower = reach(gridNo, springs, spNo, at(spNo, Math.floor(L.start.x), L.start.y), () => before);
     const leak = spNo.filter(s => s.x0 >= proof.x1 && noPower.has(s.id));
+    // every standable surface must be reachable, except inside the power-proof obstacles (built to be out of reach)
+    const zones = L.ents.filter(e => e.type === 'proof').map(p => [p.x0 - 1, p.x1 + 1]);
+    const stranded = sp.filter(s => !seen.has(s.id) && !zones.some(([a, b]) => s.x1 > a && s.x0 < b));
     const coins = L.ents.filter(e => e.type === 'coin').length;
     const enemies = L.ents.filter(e => e.min !== undefined && e.min <= d).length;
     const line = `${def.id.padEnd(8)} ${NAMES[d].padEnd(9)} length ${String(L.w).padStart(4)} · spans ${String(sp.length).padStart(3)} · coins ${coins} · enemies ${enemies}`;
@@ -155,6 +178,9 @@ for (const def of LEVELS) {
       ok = false;
       const far = [...seen].map(i => sp[i]).sort((p, q) => q.x1 - p.x1)[0];
       console.log(`${line}  ✗ goal NOT reachable — stuck around x=${far.x1}, top ${far.top}`);
+    } else if (stranded.length) {
+      ok = false;
+      console.log(`${line}  ✗ ${stranded.length} surface(s) out of reach: ${stranded.slice(0, 6).map(s => `x=${s.x0}..${s.x1} top ${s.top}`).join(' · ')}`);
     } else if (leak.length) {
       ok = false; console.log(`${line}  ✗ proof obstacle skippable without ${move} (reached x=${leak[0].x0}, top ${leak[0].top})`);
     } else console.log(`${line}  ✓`);

@@ -1,7 +1,7 @@
 // The player's 3D rig and every interactive thing in a level.
 import * as THREE from 'three';
-import { make, byName, ownMaterials } from './assets.js';
-import { aabb, T, P, solid, cell } from './physics.js';
+import { make, byName, ownMaterials } from './assets.js?v=6';
+import { aabb, T, P, solid, cell } from './physics.js?v=6';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));

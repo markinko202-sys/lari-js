@@ -1,22 +1,24 @@
 // LARI.js — game controller: screens, input, the play loop, life-lesson gates, bosses, shop and save.
 import * as THREE from 'three';
-import { loadAll, ensureTheme } from './assets.js';
-import { World } from './world.js';
-import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js';
-import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js';
-import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js';
-import { lessonText, pickQuestion } from './quiz.js';
-import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js';
-import { t, setLang, getLang, detectLang, LANGS } from './i18n.js';
-import { thumbnail } from './thumbs.js';
-import * as audio from './audio.js';
+import { loadAll, ensureTheme } from './assets.js?v=6';
+import { World } from './world.js?v=6';
+import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js?v=6';
+import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js?v=6';
+import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js?v=6';
+import { lessonText, pickQuestion } from './quiz.js?v=6';
+import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js?v=6';
+import { t, setLang, getLang, detectLang, LANGS } from './i18n.js?v=6';
+import { thumbnail } from './thumbs.js?v=6';
+import * as audio from './audio.js?v=6';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const profile = load();
 setLang(profile.lang || detectLang());
-audio.setMuted(!profile.sound);
+// ?mute keeps the game silent (automated tests) without touching the saved sound setting
+const forceMute = /[?&]mute\b/.test(location.search);
+audio.setMuted(!profile.sound || forceMute);
 
 // ------------------------------------------------------------------ renderer
 const canvas = $('#view');
@@ -317,7 +319,7 @@ function renderSettings() {
   seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { profile.difficulty = +b.dataset.diff; save(); audio.sfx('click'); renderSettings(); }));
   $('#sound-btn').textContent = profile.sound ? t('soundOn') : t('soundOff');
 }
-$('#sound-btn').addEventListener('click', () => { profile.sound = !profile.sound; save(); audio.setMuted(!profile.sound); renderSettings(); });
+$('#sound-btn').addEventListener('click', () => { profile.sound = !profile.sound; save(); audio.setMuted(!profile.sound || forceMute); renderSettings(); });
 $('#reset-btn').addEventListener('click', () => {
   if (!confirm(t('resetConfirm'))) return;
   resetSave(); if (world) world.charKey = null; enterShowroom(); renderSettings(); updateWallet();

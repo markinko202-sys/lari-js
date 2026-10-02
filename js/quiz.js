@@ -2,7 +2,7 @@
 // A gate shows a short lesson and a tip, then one question picked by difficulty. Right answer → the gate opens.
 // Every text comes in four languages. In a question the first entry is the question, the second the right
 // answer, the rest are wrong answers — the order is shuffled when the gate opens.
-import { getLang } from './i18n.js';
+import { getLang } from './i18n.js?v=6';
 
 const lesson = (v) => v;
 const q = (v) => v;
