@@ -70,7 +70,7 @@ def common(x0):
     rbox("PillarR", (0.45, 0.7, 3.0), P(9 + 0.95, 0, 1.5), stone, r, bevel=0.06)
     rbox("Lintel", (2.4, 0.8, 0.5), P(9, 0, 3.15), stone, r, bevel=0.06)
     rbox("Screen", (1.3, 0.06, 0.34), P(9, -0.41, 3.15), mat("gate_screen", "#0f2a2b", rough=0.3), r, bevel=0.02)
-    text("ScreenText", "if (skill)", 0.16, P(9, -0.45, 3.15), mat("gate_glow", "#4ff0c8", emit=4.0), r, extrude=0.005)
+    text("ScreenText", "learn · run", 0.15, P(9, -0.45, 3.15), mat("gate_glow", "#4ff0c8", emit=4.0), r, extrude=0.005)
     bar = empty("GateBarrier", P(9, 0, 1.45), r)
     rbox("BarrierMesh", (1.45, 0.12, 2.85), P(9, 0, 1.45), mat("barrier", "#4ff0c8", emit=2.5, alpha=0.45), bar)
 

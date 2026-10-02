@@ -1,161 +1,468 @@
-// The code gates. Each level has three: two lesson gates and one power gate (the level's skill).
-// A gate shows a tiny lesson, then one question picked by difficulty. Right answer → the gate compiles open.
+// The life-lesson gates. Each level has three: two lesson gates and one power gate (the level's virtue).
+// A gate shows a short lesson and a tip, then one question picked by difficulty. Right answer → the gate opens.
+// Every text comes in four languages. In a question the first entry is the question, the second the right
+// answer, the rest are wrong answers — the order is shuffled when the gate opens.
+import { getLang } from './i18n.js';
+
+const lesson = (v) => v;
+const q = (v) => v;
 
 export const LESSONS = {
-  // ---- level 1 · kampung
-  let: {
-    title: 'Variables remember things',
-    body: '<code>let</code> creates a variable you can change later; <code>const</code> one you can\'t.',
-    code: `let coins = 0;
-coins = coins + 5;      // now 5
-const name = "Lari";   // fixed`,
-  },
-  loop: {
-    title: 'Loops repeat code',
-    body: 'A <code>for</code> loop runs the same block several times: a counter, a condition, and a step.',
-    code: `for (let i = 0; i < 2; i++) {
-  jump();   // runs twice → double jump
-}`,
-    power: 'Double jump — press jump again in the air.',
-  },
-  if: {
-    title: 'if / else makes decisions',
-    body: 'Code inside <code>if</code> runs only when the condition is true; otherwise <code>else</code> runs.',
-    code: `if (bug.isBelow(player)) {
-  stomp(bug);
-} else {
-  loseHeart();
-}`,
-  },
-  // ---- level 2 · rainforest
-  array: {
-    title: 'Arrays are ordered lists',
-    body: 'Square brackets hold many values. Count from <b>0</b>; <code>.length</code> tells how many.',
-    code: `const fruit = ["durian", "rambutan", "mangosteen"];
-fruit[0];        // "durian"
-fruit.length;    // 3`,
-  },
-  function: {
-    title: 'Functions are reusable moves',
-    body: 'A <code>function</code> gives a block of code a name. Define it once, call it whenever you need it.',
-    code: `function dash(direction) {
-  speed = 17 * direction;
-}
-dash(+1);   // call it`,
-    power: 'Dash — press Shift, or double-tap ◀ / ▶ on a phone.',
-  },
-  object: {
-    title: 'Objects group named values',
-    body: 'Curly braces hold <b>key: value</b> pairs. Read them with a dot.',
-    code: `const hornbill = { name: "Kenyalang", wings: 2 };
-hornbill.name;    // "Kenyalang"`,
-  },
-  // ---- level 3 · volcano
-  event: {
-    title: 'Events call you back',
-    body: 'You hand the browser a function; it calls it later, when the event happens.',
-    code: `button.addEventListener("click", () => {
-  erupt();
-});`,
-  },
-  async: {
-    title: 'async / await waits without freezing',
-    body: '<code>await</code> pauses an <code>async</code> function until a Promise resolves — the rest of the game keeps running.',
-    code: `async function cross() {
-  await glideUntil(ground);
-  land();
-}`,
-    power: 'Glide — hold jump while falling to float across lava.',
-  },
-  try: {
-    title: 'try / catch survives errors',
-    body: 'If code inside <code>try</code> throws, <code>catch</code> runs instead of crashing the whole program.',
-    code: `try {
-  crossLava();
-} catch (err) {
-  respawn();
-}`,
-  },
+  // ---------------------------------------------------------------- level 1 · kampung
+  friends: lesson({
+    en: ['Good friends lift you up', 'Friendship grows from small things: listening, keeping promises and showing up when it matters.', 'Listen more than you talk — people remember how you made them feel.'],
+    ru: ['Настоящие друзья поддерживают', 'Дружба растёт из мелочей: умения слушать, держать слово и быть рядом, когда это важно.', 'Слушай больше, чем говоришь, — люди помнят, как ты к ним отнёсся.'],
+    zh: ['好朋友让你变得更好', '友谊来自小事：认真倾听、遵守诺言，在重要的时候陪在身边。', '多听少说——人们会记住你带给他们的感受。'],
+    ms: ['Kawan baik mengangkat kita', 'Persahabatan tumbuh daripada perkara kecil: mendengar, menepati janji dan hadir bila diperlukan.', 'Lebih banyak mendengar daripada bercakap — orang ingat bagaimana kita melayan mereka.'],
+  }),
+  persist: lesson({
+    en: ['Fall seven times, stand up eight', 'Persistence means trying again after you fail. Every attempt teaches you something — like a second jump in mid-air.', 'Missed it? Jump again. Big goals are built from small steps every day.'],
+    ru: ['Упади семь раз — встань восемь', 'Упорство — это пробовать снова после неудачи. Каждая попытка чему-то учит — как второй прыжок в воздухе.', 'Не получилось? Прыгни ещё раз. Большие цели складываются из маленьких шагов каждый день.'],
+    zh: ['七次跌倒，八次站起', '坚持就是失败后再试一次。每一次尝试都会教会你一些东西——就像空中的第二次跳跃。', '没跳过去？再跳一次。大目标由每天的小步骤组成。'],
+    ms: ['Jatuh tujuh kali, bangun lapan kali', 'Kegigihan bermaksud mencuba lagi selepas gagal. Setiap percubaan mengajar sesuatu — seperti lompatan kedua di udara.', 'Terlepas? Lompat lagi. Matlamat besar dibina daripada langkah kecil setiap hari.'],
+  }),
+  health: lesson({
+    en: ['Your body is your home', 'Sleep, water, good food and moving every day are the basics. Small daily habits beat big one-time efforts.', 'Most teenagers need 8–10 hours of sleep a night; adults need 7–9.'],
+    ru: ['Тело — твой дом', 'Сон, вода, нормальная еда и движение каждый день — это основа. Маленькие ежедневные привычки сильнее разовых подвигов.', 'Большинству подростков нужно 8–10 часов сна, взрослым — 7–9.'],
+    zh: ['身体是你的家', '睡眠、喝水、健康饮食和每天运动是基础。每天的小习惯胜过一次性的大努力。', '大多数青少年每晚需要睡 8–10 小时，成年人需要 7–9 小时。'],
+    ms: ['Badan ialah rumah kita', 'Tidur, air, makanan sihat dan bergerak setiap hari ialah asasnya. Tabiat kecil harian lebih berkesan daripada usaha besar sekali-sekala.', 'Kebanyakan remaja perlu tidur 8–10 jam semalam; orang dewasa 7–9 jam.'],
+  }),
+  // ---------------------------------------------------------------- level 2 · rainforest
+  nature: lesson({
+    en: ['The forest breathes for us', 'Trees take in carbon dioxide and give out oxygen. Rainforests like Malaysia’s are home to a huge share of the world’s plants and animals.', 'Reduce, reuse, recycle — in that order.'],
+    ru: ['Лес дышит за нас', 'Деревья поглощают углекислый газ и выделяют кислород. Тропические леса, как в Малайзии, — дом для огромной части растений и животных планеты.', 'Сократи, используй повторно, переработай — именно в таком порядке.'],
+    zh: ['森林为我们呼吸', '树木吸收二氧化碳并释放氧气。像马来西亚这样的热带雨林是世界上大量动植物的家园。', '减少、再利用、再循环——按这个顺序。'],
+    ms: ['Hutan bernafas untuk kita', 'Pokok menyerap karbon dioksida dan membebaskan oksigen. Hutan hujan seperti di Malaysia menjadi rumah kepada banyak tumbuhan dan haiwan dunia.', 'Kurangkan, guna semula, kitar semula — mengikut urutan itu.'],
+  }),
+  focus: lesson({
+    en: ['One thing at a time', 'Focus is choosing what matters and doing it fully. The brain switches tasks slowly — multitasking usually means doing two things worse.', 'Phone in another room = more focus. Out of sight, out of mind.'],
+    ru: ['Одно дело за раз', 'Фокус — это выбрать главное и сделать его полностью. Мозг переключается медленно: многозадачность обычно значит сделать два дела хуже.', 'Телефон в другой комнате = больше фокуса. С глаз долой — из сердца вон.'],
+    zh: ['一次只做一件事', '专注就是选择重要的事并全心去做。大脑切换任务很慢——一心多用通常意味着两件事都做得更差。', '把手机放到另一个房间＝更专注。眼不见，心不烦。'],
+    ms: ['Satu perkara pada satu masa', 'Fokus bermaksud memilih yang penting dan melakukannya sepenuhnya. Otak lambat bertukar tugas — buat banyak kerja serentak biasanya menjadikan semuanya kurang baik.', 'Telefon di bilik lain = lebih fokus. Jauh di mata, jauh di hati.'],
+  }),
+  money: lesson({
+    en: ['Small savings grow', 'A budget is a plan for your money: what comes in, what goes out and what you keep. Needs come before wants.', 'Pay yourself first: save a part of every ringgit before you spend.'],
+    ru: ['Маленькие сбережения растут', 'Бюджет — это план для денег: сколько приходит, сколько уходит и сколько остаётся. Сначала нужды, потом желания.', 'Сначала заплати себе: откладывай часть каждого ринггита до того, как тратить.'],
+    zh: ['小储蓄会长大', '预算是你的金钱计划：收入多少、支出多少、留下多少。先满足需要，再考虑想要。', '先付钱给自己：每一令吉花之前，先存下一部分。'],
+    ms: ['Simpanan kecil akan membesar', 'Bajet ialah pelan untuk wang: apa yang masuk, apa yang keluar dan apa yang disimpan. Keperluan sebelum kehendak.', 'Bayar diri sendiri dahulu: simpan sebahagian setiap ringgit sebelum berbelanja.'],
+  }),
+  // ---------------------------------------------------------------- level 3 · volcano
+  feelings: lesson({
+    en: ['Name it to tame it', 'Every feeling carries information. Naming what you feel — angry, scared, sad — helps your brain calm down.', 'Box breathing: in for 4, hold for 4, out for 4, hold for 4.'],
+    ru: ['Назови чувство — и укроти его', 'Каждое чувство несёт информацию. Если назвать то, что чувствуешь — злость, страх, грусть, — мозгу легче успокоиться.', 'Квадратное дыхание: вдох на 4, пауза 4, выдох на 4, пауза 4.'],
+    zh: ['说出情绪，驯服情绪', '每种情绪都带着信息。说出你的感受——生气、害怕、难过——能帮助大脑平静下来。', '方块呼吸：吸气 4 秒，屏住 4 秒，呼气 4 秒，屏住 4 秒。'],
+    ms: ['Namakan untuk menenangkan', 'Setiap perasaan membawa maklumat. Menamakan apa yang dirasa — marah, takut, sedih — membantu otak menjadi tenang.', 'Pernafasan kotak: tarik 4 saat, tahan 4, hembus 4, tahan 4.'],
+  }),
+  patience: lesson({
+    en: ['Good things take time', 'Patience is staying calm while you wait. Seeds don’t grow faster if you shout at them — but they do grow.', 'Sedikit-sedikit, lama-lama jadi bukit — little by little, it becomes a hill.'],
+    ru: ['Хорошее требует времени', 'Терпение — это сохранять спокойствие, пока ждёшь. Семена не растут быстрее, если на них кричать, — но они растут.', 'Малайская пословица: «Sedikit-sedikit, lama-lama jadi bukit» — понемногу вырастает гора.'],
+    zh: ['好事需要时间', '耐心就是在等待时保持平静。对着种子大喊不会让它长得更快——但它终究会长大。', '马来谚语：“Sedikit-sedikit, lama-lama jadi bukit”——积少成多，聚沙成山。'],
+    ms: ['Perkara baik memerlukan masa', 'Sabar bermaksud kekal tenang ketika menunggu. Benih tidak tumbuh lebih cepat jika dijerit — tetapi ia tetap tumbuh.', 'Sedikit-sedikit, lama-lama jadi bukit.'],
+  }),
+  safety: lesson({
+    en: ['Stay safe, help others', 'A few basics — the emergency number, simple first aid and what to do in a fire — can save a life.', 'Malaysia’s emergency number is 999 (112 also works from mobile phones).'],
+    ru: ['Береги себя и помогай другим', 'Несколько основ — номер экстренной службы, простая первая помощь и что делать при пожаре — могут спасти жизнь.', 'Экстренный номер в Малайзии — 999 (с мобильного работает и 112).'],
+    zh: ['保护自己，帮助他人', '一些基本常识——紧急电话、简单急救和火灾时该怎么做——可能会救人一命。', '马来西亚的紧急电话是 999（手机也可以拨打 112）。'],
+    ms: ['Jaga diri, bantu orang lain', 'Beberapa asas — nombor kecemasan, pertolongan cemas mudah dan apa yang perlu dibuat semasa kebakaran — boleh menyelamatkan nyawa.', 'Nombor kecemasan Malaysia ialah 999 (112 juga boleh dari telefon bimbit).'],
+  }),
+  // ---------------------------------------------------------------- level 4 · beach
+  teamwork: lesson({
+    en: ['Together we go further', 'Teams work when everyone has a role, people really listen and the credit is shared.', 'Berat sama dipikul, ringan sama dijinjing — heavy or light, we carry it together.'],
+    ru: ['Вместе дальше', 'Команда работает, когда у каждого есть роль, люди слушают друг друга и успех делят на всех.', '«Berat sama dipikul, ringan sama dijinjing» — тяжёлое и лёгкое несём вместе.'],
+    zh: ['团结才能走得更远', '当每个人都有分工、彼此认真倾听、功劳共同分享时，团队才能运转良好。', '“Berat sama dipikul, ringan sama dijinjing”——同甘共苦，一起承担。'],
+    ms: ['Bersama kita pergi lebih jauh', 'Pasukan berjaya apabila setiap orang ada peranan, saling mendengar dan berkongsi pujian.', 'Berat sama dipikul, ringan sama dijinjing.'],
+  }),
+  courage: lesson({
+    en: ['Brave, not fearless', 'Courage isn’t having no fear. It’s feeling the fear and doing the right thing anyway — like speaking up for someone.', 'Say it calmly and clearly: “Stop. That’s not okay.”'],
+    ru: ['Смелый — не значит бесстрашный', 'Смелость — не отсутствие страха. Это когда страшно, но ты всё равно поступаешь правильно — например, заступаешься за кого-то.', 'Скажи спокойно и чётко: «Стоп. Так нельзя».'],
+    zh: ['勇敢不等于无所畏惧', '勇气不是没有恐惧，而是感到害怕仍然做正确的事——比如为别人挺身而出。', '平静而清楚地说：“停下。这样不对。”'],
+    ms: ['Berani, bukan tanpa takut', 'Keberanian bukan bermakna tiada rasa takut. Ia bermaksud tetap melakukan perkara yang betul walaupun takut — seperti bersuara untuk orang lain.', 'Katakan dengan tenang dan jelas: “Berhenti. Itu tidak betul.”'],
+  }),
+  food: lesson({
+    en: ['Eat the rainbow', 'Different coloured fruits and vegetables give your body different vitamins. Make half your plate veggies and fruit.', 'Malaysia’s “Suku-Suku Separuh” plate: ¼ rice or grains, ¼ protein, ½ fruit and vegetables.'],
+    ru: ['Ешь радугу', 'Фрукты и овощи разных цветов дают телу разные витамины. Пусть половина тарелки будет из овощей и фруктов.', 'Малайзийская «тарелка Suku-Suku Separuh»: ¼ — рис или крупы, ¼ — белок, ½ — фрукты и овощи.'],
+    zh: ['吃出彩虹色', '不同颜色的蔬果为身体提供不同的维生素。让餐盘的一半是蔬菜和水果。', '马来西亚的“Suku-Suku Separuh”餐盘：¼ 米饭或谷物，¼ 蛋白质，½ 蔬菜水果。'],
+    ms: ['Makan pelbagai warna', 'Buah dan sayur berlainan warna memberi vitamin yang berbeza. Jadikan separuh pinggan sayur dan buah.', 'Pinggan Sihat Malaysia “Suku-Suku Separuh”: ¼ nasi atau bijirin, ¼ protein, ½ buah dan sayur.'],
+  }),
+  // ---------------------------------------------------------------- level 5 · caves
+  time: lesson({
+    en: ['Time you can’t buy back', 'Plan your day: do the important things first, not just the urgent ones. A simple to-do list is a superpower.', 'Important and urgent → do it now. Important but not urgent → plan it.'],
+    ru: ['Время не купишь', 'Планируй день: сначала важное, а не только срочное. Простой список дел — это суперсила.', 'Важное и срочное — сделай сейчас. Важное, но не срочное — запланируй.'],
+    zh: ['时间买不回来', '规划你的一天：先做重要的事，而不只是紧急的事。一张简单的待办清单就是超能力。', '重要且紧急→马上做；重要但不紧急→安排时间做。'],
+    ms: ['Masa tidak boleh dibeli semula', 'Rancang hari anda: buat perkara penting dahulu, bukan hanya yang mendesak. Senarai tugasan yang ringkas ialah kuasa besar.', 'Penting dan mendesak → buat sekarang. Penting tetapi tidak mendesak → rancang.'],
+  }),
+  grounded: lesson({
+    en: ['Stay grounded', 'Being humble means remembering where you come from, saying thank you and admitting when you’re wrong.', 'Ikut resmi padi, makin berisi makin tunduk — like rice: the fuller it gets, the lower it bows.'],
+    ru: ['Оставайся на земле', 'Скромность — это помнить, откуда ты, говорить «спасибо» и признавать свои ошибки.', '«Ikut resmi padi, makin berisi makin tunduk» — будь как рис: чем полнее колос, тем ниже он клонится.'],
+    zh: ['脚踏实地', '谦虚就是不忘初心、懂得说谢谢、错了就承认。', '“Ikut resmi padi, makin berisi makin tunduk”——像稻穗一样：越饱满，头垂得越低。'],
+    ms: ['Kekal merendah diri', 'Merendah diri bermaksud ingat asal usul, tahu berterima kasih dan mengaku apabila salah.', 'Ikut resmi padi, makin berisi makin tunduk.'],
+  }),
+  learning: lesson({
+    en: ['Your brain is a muscle', 'You learn best by practising, testing yourself and spreading study over several days — not by rereading once the night before.', 'Teach it to a friend: if you can explain it simply, you really understand it.'],
+    ru: ['Мозг — это мышца', 'Лучше всего учишься, когда практикуешься, проверяешь себя и распределяешь занятия на несколько дней, а не перечитываешь всё в последнюю ночь.', 'Объясни другу: если можешь объяснить просто — ты действительно понял.'],
+    zh: ['大脑是一块肌肉', '最好的学习方法是练习、自测，并把学习分散到几天里——而不是考前一晚重读一遍。', '讲给朋友听：如果你能简单地解释清楚，说明你真的懂了。'],
+    ms: ['Otak ialah otot', 'Kita belajar paling baik dengan berlatih, menguji diri dan membahagikan ulang kaji kepada beberapa hari — bukan membaca semula pada malam sebelum peperiksaan.', 'Ajar kepada kawan: jika anda boleh menerangkannya dengan mudah, anda benar-benar faham.'],
+  }),
+  // ---------------------------------------------------------------- level 6 · KL rooftops
+  kindness: lesson({
+    en: ['Kindness costs nothing', 'Small acts — a smile, holding a door, helping someone new — can make a big city feel like a kampung.', 'Treat others the way you would like to be treated.'],
+    ru: ['Доброта ничего не стоит', 'Мелочи — улыбка, придержанная дверь, помощь новичку — делают большой город уютным, как деревня.', 'Относись к другим так, как хочешь, чтобы относились к тебе.'],
+    zh: ['善良不花一分钱', '小小的举动——一个微笑、帮人扶门、帮助新来的人——能让大城市像甘榜一样温暖。', '己所不欲，勿施于人；你希望别人怎样待你，就怎样待别人。'],
+    ms: ['Kebaikan tidak perlu dibayar', 'Perbuatan kecil — senyuman, memegang pintu, membantu orang baharu — boleh menjadikan bandar besar terasa seperti kampung.', 'Layan orang lain seperti mana anda mahu dilayan.'],
+  }),
+  resilience: lesson({
+    en: ['Bounce back', 'Resilience is your ability to recover from hard times. Hit a wall? Push off it and go higher.', 'Ask yourself: what can I control right now? Start there.'],
+    ru: ['Отталкивайся и поднимайся', 'Стойкость — это умение восстанавливаться после трудностей. Упёрся в стену? Оттолкнись от неё и поднимись выше.', 'Спроси себя: что я могу контролировать прямо сейчас? Начни с этого.'],
+    zh: ['反弹向上', '抗逆力是从困难中恢复的能力。撞到墙了？蹬墙而上，跳得更高。', '问问自己：我现在能控制什么？就从那里开始。'],
+    ms: ['Bangkit semula', 'Daya tahan ialah keupayaan untuk pulih daripada masa sukar. Terlanggar dinding? Tolak dan naik lebih tinggi.', 'Tanya diri: apa yang boleh saya kawal sekarang? Mulakan dari situ.'],
+  }),
+  gratitude: lesson({
+    en: ['Count your blessings', 'Gratitude means noticing the good things and the people behind them. Studies link it with better mood and sleep.', 'Every night, write down three good things that happened today.'],
+    ru: ['Цени то, что есть', 'Благодарность — это замечать хорошее и людей, которые за ним стоят. Исследования связывают её с лучшим настроением и сном.', 'Каждый вечер записывай три хороших события за день.'],
+    zh: ['懂得感恩', '感恩就是留意生活中的美好，以及背后的人。研究发现它与更好的心情和睡眠有关。', '每晚写下今天发生的三件好事。'],
+    ms: ['Bersyukur', 'Bersyukur bermaksud menyedari perkara baik dan orang di sebaliknya. Kajian mengaitkannya dengan emosi dan tidur yang lebih baik.', 'Setiap malam, tulis tiga perkara baik yang berlaku hari ini.'],
+  }),
 };
 
-// difficulty: 0 easy · 1 normal · 2 hard · 3 very hard. `a` is the index of the right answer.
-const Q = (q, code, o, a) => ({ q, code, o, a });
+// four questions per topic: easy → normal → hard → very hard
 export const QUESTIONS = {
-  let: [
-    [Q('What is coins now?', 'let coins = 2;\ncoins = coins + 3;', ['2', '5', '23'], 1)],
-    [Q('What is logged?', 'let a = 1;\nlet b = a;\na = 9;\nconsole.log(b);', ['1', '9', 'undefined', 'Error'], 0),
-     Q('Which line causes an error?', 'const lives = 3;   // 1\nlet coins = 0;     // 2\ncoins = 10;        // 3\nlives = 4;         // 4', ['line 1', 'line 2', 'line 3', 'line 4'], 3)],
-    [Q('What is logged?', 'let x = "5";\nlet y = 2;\nconsole.log(x + y, x * y);', ['7 10', '52 10', '52 52', '7 7'], 1)],
-    [Q('What is logged?', 'console.log(typeof score);\nlet score = 1;', ['undefined', 'number', 'ReferenceError', '"score"'], 2)],
+  friends: [
+    q({ en: ['Your friend looks sad. What is a good first step?', 'Ask how they feel and listen', 'Ignore them', 'Make a joke about them', 'Walk away'],
+        ru: ['Друг выглядит грустным. С чего лучше начать?', 'Спросить, что случилось, и выслушать', 'Не обращать внимания', 'Пошутить над ним', 'Уйти'],
+        zh: ['朋友看起来很难过。第一步做什么比较好？', '问问他的感受并认真倾听', '不理他', '拿他开玩笑', '走开'],
+        ms: ['Kawan anda kelihatan sedih. Apakah langkah pertama yang baik?', 'Tanya perasaannya dan dengar', 'Abaikan dia', 'Buat lawak tentang dia', 'Pergi begitu sahaja'] }),
+    q({ en: ['You promised to help a friend, but something fun came up. What builds trust?', 'Keep your promise, or tell them early', 'Just don’t show up', 'Blame someone else', 'Post about the fun thing'],
+        ru: ['Ты обещал помочь другу, но появились интересные планы. Что укрепит доверие?', 'Сдержать слово или заранее предупредить', 'Просто не прийти', 'Свалить вину на другого', 'Выложить фото с развлечений'],
+        zh: ['你答应帮朋友，但突然有了好玩的事。怎样做能建立信任？', '遵守承诺，或者提前告诉他', '直接不出现', '怪别人', '发帖晒好玩的事'],
+        ms: ['Anda berjanji membantu kawan, tetapi ada aktiviti seronok. Apa yang membina kepercayaan?', 'Tepati janji, atau beritahu awal', 'Tidak datang langsung', 'Salahkan orang lain', 'Hantar gambar aktiviti seronok itu'] }),
+    q({ en: ['What is “active listening”?', 'Giving full attention and repeating back what you heard', 'Waiting for your turn to talk', 'Listening while scrolling your phone', 'Giving advice straight away'],
+        ru: ['Что такое «активное слушание»?', 'Полностью сосредоточиться и пересказать услышанное своими словами', 'Ждать своей очереди говорить', 'Слушать, листая телефон', 'Сразу давать советы'],
+        zh: ['什么是“积极倾听”？', '全神贯注，并复述你听到的内容', '等着轮到自己说话', '一边刷手机一边听', '马上给建议'],
+        ms: ['Apakah “mendengar secara aktif”?', 'Memberi perhatian penuh dan mengulang semula apa yang didengar', 'Menunggu giliran untuk bercakap', 'Mendengar sambil melihat telefon', 'Terus memberi nasihat'] }),
+    q({ en: ['A friend tells you a secret that means someone could get hurt. What should you do?', 'Tell a trusted adult who can help', 'Keep it secret forever', 'Post it online', 'Laugh it off'],
+        ru: ['Друг доверил секрет, из-за которого кто-то может пострадать. Что делать?', 'Рассказать взрослому, которому доверяешь и который может помочь', 'Хранить в тайне навсегда', 'Выложить в интернет', 'Отшутиться'],
+        zh: ['朋友告诉你一个秘密，可能会有人受到伤害。你该怎么做？', '告诉一位能帮忙、值得信任的大人', '永远保密', '发到网上', '一笑了之'],
+        ms: ['Kawan memberitahu rahsia yang boleh menyebabkan seseorang cedera. Apa patut dibuat?', 'Beritahu orang dewasa yang dipercayai dan boleh membantu', 'Simpan rahsia selama-lamanya', 'Siarkan di internet', 'Ketawa sahaja'] }),
   ],
-  loop: [
-    [Q('How many times does jump() run?', 'for (let i = 0; i < 2; i++) {\n  jump();\n}', ['1', '2', '3'], 1),
-     Q('Which keyword starts a loop?', '___ (let i = 0; i < 3; i++) { }', ['for', 'if', 'let'], 0)],
-    [Q('What does this print?', 'let s = "";\nfor (let i = 1; i <= 3; i++) s += i;\nconsole.log(s);', ['6', '123', '321', '1,2,3'], 1),
-     Q('How many coins are collected?', 'let coins = 0;\nfor (let i = 0; i < 10; i += 2) coins++;', ['10', '4', '5', '6'], 2)],
-    [Q('Which loop never ends?', '// pick the infinite one', ['for (let i = 0; i < 5; i++)', 'for (let i = 5; i > 0; i--)', 'for (let i = 0; i < 5; i--)', 'for (let i = 0; i < 5; i += 5)'], 2)],
-    [Q('What is logged?', 'const out = [];\nfor (var i = 0; i < 3; i++) {\n  setTimeout(() => out.push(i));\n}\nsetTimeout(() => console.log(out));', ['[0,1,2]', '[3,3,3]', '[1,2,3]', '[]'], 1)],
+  persist: [
+    q({ en: ['You failed a test. What is the most helpful next step?', 'Find what went wrong and practise it', 'Give up the subject', 'Hide the result', 'Blame the teacher'],
+        ru: ['Ты провалил контрольную. Какой следующий шаг полезнее всего?', 'Разобраться в ошибках и потренироваться', 'Бросить предмет', 'Спрятать оценку', 'Обвинить учителя'],
+        zh: ['你考试没及格。下一步最有帮助的是什么？', '找出错在哪里并加以练习', '放弃这门课', '把成绩藏起来', '怪老师'],
+        ms: ['Anda gagal ujian. Apakah langkah seterusnya yang paling berguna?', 'Cari kesilapan dan berlatih', 'Berhenti belajar subjek itu', 'Sorokkan keputusan', 'Salahkan guru'] }),
+    q({ en: ['Learning to ride a bicycle, you fall a few times. This means…', 'Falling is part of learning', 'You will never learn', 'Bicycles are useless', 'You should stop forever'],
+        ru: ['Учась кататься на велосипеде, ты несколько раз упал. Это значит…', 'Падения — часть обучения', 'Ты никогда не научишься', 'Велосипеды бесполезны', 'Надо бросить навсегда'],
+        zh: ['学骑自行车时你摔了几次。这说明……', '摔倒是学习的一部分', '你永远学不会', '自行车没有用', '你应该永远放弃'],
+        ms: ['Semasa belajar menunggang basikal, anda jatuh beberapa kali. Ini bermakna…', 'Jatuh ialah sebahagian daripada belajar', 'Anda tidak akan pandai', 'Basikal tidak berguna', 'Anda patut berhenti selamanya'] }),
+    q({ en: ['Which habit helps most with a big goal?', 'Small steps every day', 'One huge effort once a year', 'Waiting to feel motivated', 'Working only when it’s easy'],
+        ru: ['Какая привычка больше всего помогает достичь большой цели?', 'Маленькие шаги каждый день', 'Один огромный рывок раз в год', 'Ждать вдохновения', 'Работать, только когда легко'],
+        zh: ['哪个习惯对实现大目标最有帮助？', '每天迈出小步', '一年拼命一次', '等有动力了再做', '只在容易的时候做'],
+        ms: ['Tabiat manakah paling membantu mencapai matlamat besar?', 'Langkah kecil setiap hari', 'Satu usaha besar setahun sekali', 'Menunggu rasa bermotivasi', 'Bekerja hanya bila mudah'] }),
+    q({ en: ['What is a “plateau” when you practise a skill?', 'A stretch where progress feels flat before it improves again', 'The moment you master it', 'A sign you should quit', 'A kind of warm-up'],
+        ru: ['Что такое «плато» при освоении навыка?', 'Период, когда прогресс будто стоит, а потом снова идёт вверх', 'Момент, когда ты всё освоил', 'Знак, что пора бросать', 'Вид разминки'],
+        zh: ['练习技能时的“平台期”是什么？', '进步似乎停滞、之后又会继续提高的一段时期', '你完全掌握的那一刻', '你该放弃的信号', '一种热身运动'],
+        ms: ['Apakah “dataran” (plateau) semasa berlatih sesuatu kemahiran?', 'Tempoh kemajuan terasa mendatar sebelum meningkat semula', 'Saat anda menguasainya', 'Tanda anda patut berhenti', 'Sejenis senaman memanaskan badan'] }),
   ],
-  if: [
-    [Q('What is logged?', 'const hearts = 0;\nif (hearts > 0) console.log("run");\nelse console.log("game over");', ['run', 'game over', 'nothing'], 1)],
-    [Q('Which branch runs when coins = 50?', 'if (coins > 100) buy("crown");\nelse if (coins > 40) buy("cap");\nelse save();', ['buy("crown")', 'buy("cap")', 'save()', 'all three'], 1)],
-    [Q('What is logged?', 'const lives = "0";\nif (lives) console.log("alive");\nelse console.log("dead");', ['alive', 'dead', 'Error', 'undefined'], 0)],
-    [Q('What is logged?', 'const a = [], b = [];\nconsole.log(a == b, a === a, null ?? "x", 0 || "y");', ['true true x y', 'false true x y', 'false true null y', 'false false x 0'], 1)],
+  health: [
+    q({ en: ['What is the best drink when you’re thirsty after playing outside?', 'Water', 'Fizzy soda', 'Coffee', 'An energy drink'],
+        ru: ['Что лучше всего пить, когда хочется пить после игр на улице?', 'Воду', 'Газировку', 'Кофе', 'Энергетик'],
+        zh: ['在外面玩完口渴时，最好喝什么？', '水', '汽水', '咖啡', '能量饮料'],
+        ms: ['Apakah minuman terbaik apabila dahaga selepas bermain di luar?', 'Air kosong', 'Minuman bergas', 'Kopi', 'Minuman tenaga'] }),
+    q({ en: ['How long should you wash your hands with soap?', 'At least 20 seconds', '2 seconds', 'Only when they look dirty', '5 minutes'],
+        ru: ['Сколько нужно мыть руки с мылом?', 'Не меньше 20 секунд', '2 секунды', 'Только если они грязные на вид', '5 минут'],
+        zh: ['用肥皂洗手应该洗多久？', '至少 20 秒', '2 秒', '看起来脏的时候才洗', '5 分钟'],
+        ms: ['Berapa lama patut mencuci tangan dengan sabun?', 'Sekurang-kurangnya 20 saat', '2 saat', 'Hanya bila nampak kotor', '5 minit'] }),
+    q({ en: ['How many hours of sleep do most teenagers need each night?', '8–10 hours', '4–5 hours', '12–14 hours', '6 hours'],
+        ru: ['Сколько часов сна нужно большинству подростков?', '8–10 часов', '4–5 часов', '12–14 часов', '6 часов'],
+        zh: ['大多数青少年每晚需要睡多少小时？', '8–10 小时', '4–5 小时', '12–14 小时', '6 小时'],
+        ms: ['Berapa jam tidur diperlukan kebanyakan remaja setiap malam?', '8–10 jam', '4–5 jam', '12–14 jam', '6 jam'] }),
+    q({ en: ['How much moderate exercise per week does the WHO recommend for adults?', 'At least 150 minutes', '10 minutes', '1 hour a month', 'None if you eat well'],
+        ru: ['Сколько умеренной нагрузки в неделю ВОЗ рекомендует взрослым?', 'Не меньше 150 минут', '10 минут', '1 час в месяц', 'Нисколько, если правильно питаться'],
+        zh: ['世界卫生组织建议成年人每周至少做多少中等强度运动？', '至少 150 分钟', '10 分钟', '每月 1 小时', '吃得好就不用运动'],
+        ms: ['Berapa banyak senaman sederhana seminggu disyorkan WHO untuk orang dewasa?', 'Sekurang-kurangnya 150 minit', '10 minit', '1 jam sebulan', 'Tiada jika makan dengan baik'] }),
   ],
-  array: [
-    [Q('What is fruit[1]?', 'const fruit = ["durian", "rambutan", "nangka"];', ['"durian"', '"rambutan"', '"nangka"'], 1)],
-    [Q('What is logged?', 'const a = [3, 1, 2];\na.push(5);\nconsole.log(a.length);', ['3', '4', '5', '11'], 1),
-     Q('What does this return?', '[1, 2, 3].map(n => n * 2)', ['[1,2,3]', '[2,4,6]', '6', '12'], 1)],
-    [Q('What is logged?', 'const t = [5, 12, 8, 20];\nconsole.log(t.filter(n => n > 10).length);', ['1', '2', '3', '4'], 1)],
-    [Q('What is logged?', 'const a = [1, 2, 3];\nconst b = a;\nb.push(4);\nconsole.log(a.length, [10, 1, 2].sort()[0]);', ['3 1', '4 1', '4 10', '3 10'], 1)],
+  nature: [
+    q({ en: ['Which gas do trees take in from the air?', 'Carbon dioxide', 'Oxygen', 'Helium', 'Smoke'],
+        ru: ['Какой газ деревья поглощают из воздуха?', 'Углекислый газ', 'Кислород', 'Гелий', 'Дым'],
+        zh: ['树木从空气中吸收哪种气体？', '二氧化碳', '氧气', '氦气', '烟'],
+        ms: ['Gas apakah yang diserap oleh pokok dari udara?', 'Karbon dioksida', 'Oksigen', 'Helium', 'Asap'] }),
+    q({ en: ['Which of these helps the environment most?', 'Using a refillable water bottle', 'Buying a new plastic bottle every day', 'Leaving the lights on', 'Burning rubbish'],
+        ru: ['Что из этого больше всего помогает природе?', 'Пользоваться многоразовой бутылкой', 'Каждый день покупать новую пластиковую бутылку', 'Не выключать свет', 'Сжигать мусор'],
+        zh: ['以下哪项对环境帮助最大？', '使用可重复装水的水瓶', '每天买新的塑料瓶', '一直开着灯', '焚烧垃圾'],
+        ms: ['Antara berikut, yang manakah paling membantu alam sekitar?', 'Menggunakan botol air boleh isi semula', 'Membeli botol plastik baharu setiap hari', 'Membiarkan lampu menyala', 'Membakar sampah'] }),
+    q({ en: ['What is the right order of the “3 Rs”?', 'Reduce, reuse, recycle', 'Recycle, reuse, reduce', 'Reuse, recycle, reduce', 'Reduce, recycle, reuse'],
+        ru: ['Какой правильный порядок «трёх R»?', 'Сократить, использовать повторно, переработать', 'Переработать, использовать повторно, сократить', 'Использовать повторно, переработать, сократить', 'Сократить, переработать, использовать повторно'],
+        zh: ['“3R”原则的正确顺序是什么？', '减少、再利用、再循环', '再循环、再利用、减少', '再利用、再循环、减少', '减少、再循环、再利用'],
+        ms: ['Apakah susunan betul “3R”?', 'Kurangkan, guna semula, kitar semula', 'Kitar semula, guna semula, kurangkan', 'Guna semula, kitar semula, kurangkan', 'Kurangkan, kitar semula, guna semula'] }),
+    q({ en: ['Roughly how long can a plastic bottle take to break down in nature?', 'Hundreds of years', 'About a week', 'About a year', 'It never ends up in nature'],
+        ru: ['Примерно сколько разлагается пластиковая бутылка в природе?', 'Сотни лет', 'Около недели', 'Около года', 'Она никогда не попадает в природу'],
+        zh: ['一个塑料瓶在自然界中大约需要多久才能分解？', '数百年', '大约一周', '大约一年', '它从不会进入自然界'],
+        ms: ['Lebih kurang berapa lama botol plastik mengambil masa untuk terurai di alam semula jadi?', 'Ratusan tahun', 'Kira-kira seminggu', 'Kira-kira setahun', 'Ia tidak pernah sampai ke alam semula jadi'] }),
   ],
-  function: [
-    [Q('How do you call this function?', 'function dash() {\n  // ...\n}', ['dash', 'dash()', 'call dash'], 1),
-     Q('What does it return?', 'function double(n) {\n  return n * 2;\n}\ndouble(4);', ['4', '8', '42'], 1)],
-    [Q('What is the value of x?', 'function add(a, b = 10) {\n  return a + b;\n}\nconst x = add(5);', ['5', '15', 'NaN', 'undefined'], 1),
-     Q('What does this log?', 'const greet = name => `Hi ${name}`;\nconsole.log(greet("KL"));', ['Hi name', 'Hi KL', 'greet KL', 'undefined'], 1)],
-    [Q('What does counter() return the 3rd time?', 'function make() {\n  let n = 0;\n  return () => ++n;\n}\nconst counter = make();', ['0', '1', '3', 'NaN'], 2)],
-    [Q('What is logged?', 'console.log(typeof hoisted, typeof later);\nfunction hoisted() {}\nvar later = () => {};', ['function function', 'function undefined', 'undefined undefined', 'ReferenceError'], 1)],
+  focus: [
+    q({ en: ['You’re doing homework. What helps you focus best?', 'Phone face-down in another room', 'TV on loud', 'Chatting at the same time', 'Checking messages every minute'],
+        ru: ['Ты делаешь уроки. Что лучше всего помогает сосредоточиться?', 'Телефон экраном вниз в другой комнате', 'Громко включённый телевизор', 'Переписываться одновременно', 'Проверять сообщения каждую минуту'],
+        zh: ['写作业时，什么最能帮你集中注意力？', '把手机屏幕朝下放在另一个房间', '把电视开得很大声', '同时聊天', '每分钟查看消息'],
+        ms: ['Anda sedang membuat kerja rumah. Apa yang paling membantu fokus?', 'Telefon diterbalikkan di bilik lain', 'TV dipasang kuat', 'Bersembang pada masa yang sama', 'Semak mesej setiap minit'] }),
+    q({ en: ['The classic Pomodoro technique uses work blocks of…', '25 minutes, then a short break', '3 hours without a break', '5 minutes', 'The whole day'],
+        ru: ['Классическая техника «Помидоро» — это блоки работы по…', '25 минут, затем короткий перерыв', '3 часа без перерыва', '5 минут', 'Весь день'],
+        zh: ['经典的番茄工作法每个工作时段是……', '25 分钟，然后短暂休息', '连续 3 小时不休息', '5 分钟', '一整天'],
+        ms: ['Teknik Pomodoro klasik menggunakan blok kerja selama…', '25 minit, kemudian rehat sebentar', '3 jam tanpa rehat', '5 minit', 'Sepanjang hari'] }),
+    q({ en: ['Switching between tasks again and again usually…', 'Costs time and causes more mistakes', 'Makes you faster', 'Has no effect', 'Improves your memory'],
+        ru: ['Постоянное переключение между задачами обычно…', 'Отнимает время и увеличивает число ошибок', 'Делает тебя быстрее', 'Ни на что не влияет', 'Улучшает память'],
+        zh: ['在任务之间反复切换通常会……', '浪费时间并导致更多错误', '让你更快', '没有影响', '提高记忆力'],
+        ms: ['Bertukar-tukar antara tugasan berulang kali biasanya…', 'Membazir masa dan menyebabkan lebih banyak kesilapan', 'Menjadikan anda lebih pantas', 'Tiada kesan', 'Meningkatkan ingatan'] }),
+    q({ en: ['What is a “deep work” session?', 'Long, distraction-free time on one hard task', 'Working underground', 'Doing many small tasks at once', 'Working while half asleep'],
+        ru: ['Что такое сессия «глубокой работы»?', 'Долгое время над одной сложной задачей без отвлечений', 'Работа под землёй', 'Много мелких дел одновременно', 'Работа в полусне'],
+        zh: ['什么是“深度工作”时段？', '长时间无干扰地专注于一项困难任务', '在地下工作', '同时做很多小任务', '半睡半醒地工作'],
+        ms: ['Apakah sesi “kerja mendalam” (deep work)?', 'Masa panjang tanpa gangguan untuk satu tugasan sukar', 'Bekerja di bawah tanah', 'Membuat banyak tugasan kecil serentak', 'Bekerja dalam keadaan mengantuk'] }),
   ],
-  object: [
-    [Q('What is bird.name?', 'const bird = { name: "hornbill", wings: 2 };', ['"bird"', '"hornbill"', '2'], 1)],
-    [Q('What is logged?', 'const p = { x: 1 };\np.y = 2;\nconsole.log(Object.keys(p).length);', ['1', '2', '3', 'undefined'], 1)],
-    [Q('What is logged?', 'const { name, speed = 7 } = { name: "Rimba" };\nconsole.log(name, speed);', ['Rimba undefined', 'Rimba 7', 'undefined 7', 'Error'], 1)],
-    [Q('What is logged?', 'const a = { n: 1 };\nconst b = { ...a };\nb.n = 2;\nconsole.log(a.n, JSON.stringify({ u: undefined }));', ['1 {}', '2 {}', '1 {"u":undefined}', '2 {"u":null}'], 0)],
+  money: [
+    q({ en: ['Which one is a NEED, not a want?', 'Food', 'A new game skin', 'Designer shoes', 'A fifth hoodie'],
+        ru: ['Что из этого — потребность, а не желание?', 'Еда', 'Новый скин в игре', 'Дизайнерские кроссовки', 'Пятая толстовка'],
+        zh: ['哪一项是“需要”而不是“想要”？', '食物', '新的游戏皮肤', '名牌鞋', '第五件卫衣'],
+        ms: ['Yang manakah KEPERLUAN, bukan kehendak?', 'Makanan', 'Skin permainan baharu', 'Kasut berjenama', 'Hoodie kelima'] }),
+    q({ en: ['You save RM5 every week. How much after one year (52 weeks)?', 'RM260', 'RM52', 'RM500', 'RM100'],
+        ru: ['Ты откладываешь 5 ринггитов в неделю. Сколько будет через год (52 недели)?', '260 ринггитов', '52 ринггита', '500 ринггитов', '100 ринггитов'],
+        zh: ['你每周存 5 令吉。一年（52 周）后有多少？', '260 令吉', '52 令吉', '500 令吉', '100 令吉'],
+        ms: ['Anda menyimpan RM5 setiap minggu. Berapa jumlahnya selepas setahun (52 minggu)?', 'RM260', 'RM52', 'RM500', 'RM100'] }),
+    q({ en: ['What is a budget?', 'A plan for how you earn, spend and save money', 'A type of bank', 'Money you borrow', 'Just a shopping list'],
+        ru: ['Что такое бюджет?', 'План того, как получать, тратить и копить деньги', 'Вид банка', 'Деньги в долг', 'Просто список покупок'],
+        zh: ['什么是预算？', '关于如何赚钱、花钱和存钱的计划', '一种银行', '借来的钱', '只是一张购物清单'],
+        ms: ['Apakah bajet?', 'Pelan bagaimana anda memperoleh, membelanja dan menyimpan wang', 'Sejenis bank', 'Wang yang dipinjam', 'Hanya senarai membeli-belah'] }),
+    q({ en: ['You save RM100 at 10% interest a year, added yearly. How much after 2 years?', 'RM121', 'RM120', 'RM110', 'RM200'],
+        ru: ['Ты положил 100 ринггитов под 10% годовых с ежегодной капитализацией. Сколько будет через 2 года?', '121 ринггит', '120 ринггитов', '110 ринггитов', '200 ринггитов'],
+        zh: ['你存 100 令吉，年利率 10%，每年复利一次。2 年后有多少？', '121 令吉', '120 令吉', '110 令吉', '200 令吉'],
+        ms: ['Anda menyimpan RM100 dengan faedah 10% setahun, dikompaun setiap tahun. Berapa selepas 2 tahun?', 'RM121', 'RM120', 'RM110', 'RM200'] }),
   ],
-  event: [
-    [Q('When does erupt() run?', 'button.addEventListener("click", erupt);', ['right away', 'when the button is clicked', 'never'], 1)],
-    [Q('In what order are the letters logged?', 'console.log("A");\nsetTimeout(() => console.log("B"), 0);\nconsole.log("C");', ['A B C', 'A C B', 'B A C', 'C A B'], 1)],
-    [Q('What is wrong here?', 'btn.addEventListener("click", erupt());', ['nothing', 'erupt runs immediately, not on click', '"click" should be "onclick"', 'missing semicolon'], 1)],
-    [Q('What is logged?', 'console.log(1);\nPromise.resolve().then(() => console.log(2));\nsetTimeout(() => console.log(3));\nconsole.log(4);', ['1 2 3 4', '1 4 2 3', '1 4 3 2', '1 2 4 3'], 1)],
+  feelings: [
+    q({ en: ['You feel very angry. What is a healthy first step?', 'Breathe slowly and take a pause', 'Shout at someone', 'Break something', 'Bottle it up forever'],
+        ru: ['Ты очень злишься. Какой первый шаг будет здоровым?', 'Медленно подышать и сделать паузу', 'Накричать на кого-нибудь', 'Что-нибудь сломать', 'Держать всё в себе всегда'],
+        zh: ['你非常生气。健康的第一步是什么？', '慢慢呼吸，先停一停', '对别人大喊', '摔东西', '永远憋在心里'],
+        ms: ['Anda sangat marah. Apakah langkah pertama yang sihat?', 'Bernafas perlahan dan berhenti sejenak', 'Menjerit kepada seseorang', 'Memecahkan sesuatu', 'Memendamnya selama-lamanya'] }),
+    q({ en: ['In “box breathing”, each step lasts about…', '4 seconds', '1 second', '30 seconds', '2 minutes'],
+        ru: ['В «квадратном дыхании» каждый этап длится примерно…', '4 секунды', '1 секунду', '30 секунд', '2 минуты'],
+        zh: ['在“方块呼吸”中，每一步大约持续……', '4 秒', '1 秒', '30 秒', '2 分钟'],
+        ms: ['Dalam “pernafasan kotak”, setiap langkah mengambil masa kira-kira…', '4 saat', '1 saat', '30 saat', '2 minit'] }),
+    q({ en: ['Why does naming a feeling (“I feel anxious”) help?', 'It helps the brain calm the emotional reaction', 'It makes the feeling stronger', 'It does nothing', 'It makes you forget everything'],
+        ru: ['Почему помогает назвать чувство («я тревожусь»)?', 'Это помогает мозгу успокоить эмоциональную реакцию', 'Чувство становится сильнее', 'Это ничего не даёт', 'Так всё забывается'],
+        zh: ['为什么说出情绪（“我感到焦虑”）会有帮助？', '它帮助大脑平复情绪反应', '它让情绪更强烈', '它没有任何作用', '它让你忘掉一切'],
+        ms: ['Mengapa menamakan perasaan (“Saya rasa cemas”) membantu?', 'Ia membantu otak menenangkan reaksi emosi', 'Ia menjadikan perasaan lebih kuat', 'Ia tiada kesan', 'Ia membuatkan anda lupa segalanya'] }),
+    q({ en: ['Which is a sign you should talk to someone you trust about your feelings?', 'Feeling down most days for two weeks or more', 'Feeling happy at a party', 'Being tired after sport', 'Laughing at a joke'],
+        ru: ['Какой признак говорит, что стоит поговорить о своих чувствах с тем, кому доверяешь?', 'Подавленность почти каждый день две недели и дольше', 'Радость на вечеринке', 'Усталость после тренировки', 'Смех над шуткой'],
+        zh: ['哪种情况说明你应该和信任的人谈谈自己的感受？', '两周或更久几乎每天都情绪低落', '在派对上感到开心', '运动后觉得累', '听笑话时大笑'],
+        ms: ['Yang manakah tanda anda patut bercakap dengan orang yang dipercayai tentang perasaan anda?', 'Rasa sedih hampir setiap hari selama dua minggu atau lebih', 'Gembira di majlis', 'Penat selepas bersukan', 'Ketawa mendengar jenaka'] }),
   ],
-  async: [
-    [Q('Which keyword waits for a Promise?', 'async function load() {\n  const data = ___ fetch(url);\n}', ['wait', 'await', 'then'], 1),
-     Q('An async function always returns…', 'async function f() { return 1; }', ['a number', 'a Promise', 'nothing'], 1)],
-    [Q('What does this log?', 'async function f() { return 7; }\nf().then(v => console.log(v + 1));', ['7', '8', 'Promise', 'undefined'], 1)],
-    [Q('How long until "done" (roughly)?', 'const wait = ms => new Promise(r => setTimeout(r, ms));\nawait Promise.all([wait(300), wait(500)]);\nconsole.log("done");', ['300 ms', '500 ms', '800 ms', 'never'], 1)],
-    [Q('How long until "done" (roughly)?', 'const wait = ms => new Promise(r => setTimeout(r, ms));\nfor (const ms of [300, 500]) await wait(ms);\nconsole.log("done");', ['300 ms', '500 ms', '800 ms', 'never'], 2)],
+  patience: [
+    q({ en: ['Your friend is late. What shows patience?', 'Wait calmly or send a kind message', 'Leave angrily', 'Yell when they arrive', 'Never meet them again'],
+        ru: ['Друг опаздывает. Что показывает терпение?', 'Спокойно подождать или написать доброе сообщение', 'Уйти в гневе', 'Накричать, когда он придёт', 'Больше никогда с ним не встречаться'],
+        zh: ['朋友迟到了。怎样做体现耐心？', '平静地等待或发一条友善的消息', '生气地离开', '他到了就大吼', '再也不和他见面'],
+        ms: ['Kawan anda lewat. Apakah yang menunjukkan kesabaran?', 'Tunggu dengan tenang atau hantar mesej yang baik', 'Pergi dengan marah', 'Menjerit bila dia sampai', 'Tidak mahu jumpa dia lagi'] }),
+    q({ en: ['“Sedikit-sedikit, lama-lama jadi bukit” means…', 'Little by little, it becomes a hill', 'Hills are hard to climb', 'Never save anything', 'Go fast or go home'],
+        ru: ['«Sedikit-sedikit, lama-lama jadi bukit» значит…', 'Понемногу набирается целая гора', 'На холмы трудно забираться', 'Никогда ничего не копи', 'Быстро или никак'],
+        zh: ['“Sedikit-sedikit, lama-lama jadi bukit”的意思是……', '积少成多，聚沙成山', '山很难爬', '什么都不要存', '要么快要么别做'],
+        ms: ['“Sedikit-sedikit, lama-lama jadi bukit” bermaksud…', 'Sedikit demi sedikit, lama-kelamaan menjadi banyak', 'Bukit sukar didaki', 'Jangan simpan apa-apa', 'Cepat atau balik'] }),
+    q({ en: ['In the famous “marshmallow test”, children who waited for a while…', 'Got two treats instead of one', 'Got nothing', 'Were punished', 'Had to leave'],
+        ru: ['В знаменитом «зефирном тесте» дети, которые смогли подождать…', 'Получали две сладости вместо одной', 'Ничего не получали', 'Были наказаны', 'Должны были уйти'],
+        zh: ['在著名的“棉花糖实验”中，能等待一会儿的孩子……', '得到两颗糖而不是一颗', '什么也没得到', '受到惩罚', '必须离开'],
+        ms: ['Dalam “ujian marshmallow” yang terkenal, kanak-kanak yang sanggup menunggu…', 'Mendapat dua gula-gula, bukan satu', 'Tidak mendapat apa-apa', 'Dihukum', 'Terpaksa keluar'] }),
+    q({ en: ['Why do slow, steady habits often beat quick fixes?', 'They’re easier to keep, so the results last', 'They are always more fun', 'They need no effort', 'Quick fixes are illegal'],
+        ru: ['Почему медленные, но регулярные привычки часто лучше быстрых решений?', 'Их легче поддерживать, и результат сохраняется', 'Они всегда веселее', 'Они не требуют усилий', 'Быстрые решения запрещены'],
+        zh: ['为什么缓慢而稳定的习惯往往比速成更好？', '更容易坚持，所以效果更持久', '它们总是更有趣', '它们不需要努力', '速成是违法的'],
+        ms: ['Mengapa tabiat perlahan tetapi konsisten sering lebih baik daripada jalan pintas?', 'Lebih mudah dikekalkan, jadi hasilnya tahan lama', 'Ia sentiasa lebih seronok', 'Ia tidak perlukan usaha', 'Jalan pintas menyalahi undang-undang'] }),
   ],
-  try: [
-    [Q('What runs if crossLava() throws?', 'try { crossLava(); }\ncatch (e) { respawn(); }', ['nothing', 'respawn()', 'the game crashes'], 1)],
-    [Q('What is logged?', 'try {\n  JSON.parse("{bad json}");\n  console.log("ok");\n} catch {\n  console.log("oops");\n}', ['ok', 'oops', 'ok oops', 'nothing'], 1)],
-    [Q('What is logged?', 'function f() {\n  try { return "try"; }\n  finally { console.log("finally"); }\n}\nconsole.log(f());', ['try', 'finally try', 'try finally', 'finally'], 1)],
-    [Q('Is the error caught?', 'try {\n  setTimeout(() => { throw new Error("boom"); });\n} catch (e) {\n  console.log("caught");\n}', ['yes, logs "caught"', 'no — it throws later, outside the try', 'yes, silently', 'syntax error'], 1)],
+  safety: [
+    q({ en: ['What is the emergency number in Malaysia?', '999', '123', '555', '0000'],
+        ru: ['Какой номер экстренной службы в Малайзии?', '999', '123', '555', '0000'],
+        zh: ['马来西亚的紧急电话是多少？', '999', '123', '555', '0000'],
+        ms: ['Apakah nombor kecemasan di Malaysia?', '999', '123', '555', '0000'] }),
+    q({ en: ['There is smoke in the room during a fire. You should…', 'Stay low and crawl to the exit', 'Stand up tall', 'Hide in a cupboard', 'Go back for your things'],
+        ru: ['При пожаре в комнате дым. Что делать?', 'Пригнуться и ползти к выходу', 'Встать в полный рост', 'Спрятаться в шкаф', 'Вернуться за вещами'],
+        zh: ['发生火灾时房间里有烟。你应该……', '压低身子，爬向出口', '站直身体', '躲进柜子里', '回去拿东西'],
+        ms: ['Ada asap di dalam bilik semasa kebakaran. Anda patut…', 'Merendah badan dan merangkak ke pintu keluar', 'Berdiri tegak', 'Bersembunyi dalam almari', 'Patah balik ambil barang'] }),
+    q({ en: ['First aid for a small burn: cool it under running water for about…', '20 minutes', '5 seconds', 'Never — rub butter on it', 'Hold ice on it for an hour'],
+        ru: ['Первая помощь при небольшом ожоге: охлаждать под проточной водой примерно…', '20 минут', '5 секунд', 'Не надо — намазать маслом', 'Держать лёд целый час'],
+        zh: ['小烫伤的急救：用流动的水冲洗大约……', '20 分钟', '5 秒', '不用冲，涂黄油', '敷冰一小时'],
+        ms: ['Pertolongan cemas untuk lecur kecil: sejukkan di bawah air mengalir selama kira-kira…', '20 minit', '5 saat', 'Jangan — sapu mentega', 'Letak ais selama sejam'] }),
+    q({ en: ['Someone collapses and isn’t breathing. After calling 999, chest compressions in CPR are about…', '100–120 a minute', '10 a minute', '300 a minute', 'One every minute'],
+        ru: ['Человек упал и не дышит. После звонка в 999 компрессии грудной клетки при СЛР делают примерно…', '100–120 в минуту', '10 в минуту', '300 в минуту', 'Раз в минуту'],
+        zh: ['有人倒下且没有呼吸。拨打 999 后，心肺复苏的胸外按压频率大约是……', '每分钟 100–120 次', '每分钟 10 次', '每分钟 300 次', '每分钟 1 次'],
+        ms: ['Seseorang rebah dan tidak bernafas. Selepas menelefon 999, tekanan dada CPR dilakukan kira-kira…', '100–120 kali seminit', '10 kali seminit', '300 kali seminit', 'Sekali seminit'] }),
+  ],
+  teamwork: [
+    q({ en: ['Your team is building a sandcastle. What helps most?', 'Share the jobs and help each other', 'Do it all yourself', 'Knock it down', 'Argue about the colour'],
+        ru: ['Твоя команда строит замок из песка. Что поможет больше всего?', 'Распределить задачи и помогать друг другу', 'Сделать всё самому', 'Разрушить его', 'Спорить о цвете'],
+        zh: ['你的团队在堆沙堡。什么最有帮助？', '分工合作，互相帮助', '全部自己做', '把它推倒', '为颜色争吵'],
+        ms: ['Pasukan anda sedang membina istana pasir. Apa yang paling membantu?', 'Bahagikan tugas dan saling membantu', 'Buat semuanya sendiri', 'Runtuhkannya', 'Bergaduh tentang warna'] }),
+    q({ en: ['“Berat sama dipikul, ringan sama dijinjing” is about…', 'Sharing work and hardship together', 'Lifting weights', 'Carrying shopping bags', 'Working alone'],
+        ru: ['«Berat sama dipikul, ringan sama dijinjing» — это о…', 'Том, чтобы вместе делить работу и трудности', 'Поднятии тяжестей', 'Ношении пакетов с покупками', 'Работе в одиночку'],
+        zh: ['“Berat sama dipikul, ringan sama dijinjing”说的是……', '一起分担工作和困难', '举重', '提购物袋', '独自工作'],
+        ms: ['“Berat sama dipikul, ringan sama dijinjing” bermaksud…', 'Berkongsi kerja dan kesusahan bersama', 'Mengangkat berat', 'Membawa beg membeli-belah', 'Bekerja seorang diri'] }),
+    q({ en: ['A teammate made a mistake. What helps the team most?', 'Fix it together and learn from it', 'Blame them in front of everyone', 'Quit the team', 'Pretend nothing happened'],
+        ru: ['Товарищ по команде ошибся. Что больше всего поможет команде?', 'Вместе исправить и сделать выводы', 'Обвинить его при всех', 'Уйти из команды', 'Сделать вид, что ничего не было'],
+        zh: ['队友犯了错。什么对团队最有帮助？', '一起改正并从中学习', '当众责怪他', '退出团队', '假装什么都没发生'],
+        ms: ['Rakan sepasukan melakukan kesilapan. Apa yang paling membantu pasukan?', 'Betulkan bersama dan belajar daripadanya', 'Salahkan dia di depan semua', 'Keluar dari pasukan', 'Buat-buat tiada apa berlaku'] }),
+    q({ en: ['What is “brainstorming”?', 'Sharing many ideas first and judging them later', 'A storm inside your head', 'Picking the first idea only', 'Only the leader may speak'],
+        ru: ['Что такое «мозговой штурм»?', 'Сначала набросать много идей, а оценивать потом', 'Буря в голове', 'Выбрать только первую идею', 'Говорит только лидер'],
+        zh: ['什么是“头脑风暴”？', '先提出大量想法，之后再评判', '脑子里刮风暴', '只选第一个想法', '只有组长能发言'],
+        ms: ['Apakah “sumbang saran” (brainstorming)?', 'Mengemukakan banyak idea dahulu dan menilai kemudian', 'Ribut di dalam kepala', 'Memilih idea pertama sahaja', 'Hanya ketua boleh bercakap'] }),
+  ],
+  courage: [
+    q({ en: ['Someone is being bullied. What’s a brave and safe thing to do?', 'Tell a teacher or a trusted adult', 'Join in', 'Film it for likes', 'Look away'],
+        ru: ['Над кем-то издеваются. Что будет смелым и безопасным поступком?', 'Сказать учителю или взрослому, которому доверяешь', 'Присоединиться', 'Снять на видео ради лайков', 'Отвернуться'],
+        zh: ['有人正在被欺负。勇敢又安全的做法是什么？', '告诉老师或信任的大人', '加入欺负', '拍视频赚点赞', '假装没看见'],
+        ms: ['Seseorang sedang dibuli. Apakah tindakan berani dan selamat?', 'Beritahu guru atau orang dewasa yang dipercayai', 'Turut serta', 'Rakam untuk dapat “like”', 'Pandang ke arah lain'] }),
+    q({ en: ['Courage means…', 'Doing the right thing even when you’re scared', 'Never feeling afraid', 'Taking dangerous risks for fun', 'Always fighting'],
+        ru: ['Смелость — это…', 'Поступать правильно, даже когда страшно', 'Никогда не бояться', 'Рисковать ради забавы', 'Всегда драться'],
+        zh: ['勇气是指……', '即使害怕也做正确的事', '从不感到害怕', '为了好玩去冒险', '总是打架'],
+        ms: ['Keberanian bermaksud…', 'Melakukan perkara betul walaupun takut', 'Tidak pernah takut', 'Mengambil risiko berbahaya untuk suka-suka', 'Sentiasa bergaduh'] }),
+    q({ en: ['You’re nervous before speaking in class. What helps?', 'Practise first and take slow breaths', 'Skip school', 'Read it super fast', 'Don’t prepare at all'],
+        ru: ['Ты волнуешься перед выступлением в классе. Что поможет?', 'Отрепетировать заранее и медленно подышать', 'Прогулять школу', 'Прочитать очень быстро', 'Совсем не готовиться'],
+        zh: ['在课堂上发言前你很紧张。什么有帮助？', '提前练习，慢慢呼吸', '逃学', '读得飞快', '完全不准备'],
+        ms: ['Anda gementar sebelum bercakap di kelas. Apa yang membantu?', 'Berlatih dahulu dan bernafas perlahan', 'Ponteng sekolah', 'Baca dengan sangat laju', 'Tidak bersedia langsung'] }),
+    q({ en: ['Saying “no” to a friend’s dangerous dare shows…', 'Courage and self-respect', 'That you’re boring', 'Rudeness', 'That you lost'],
+        ru: ['Сказать «нет» опасному спору с другом — это проявление…', 'Смелости и самоуважения', 'Скучности', 'Грубости', 'Поражения'],
+        zh: ['拒绝朋友危险的挑战说明了……', '勇气和自尊', '你很无聊', '不礼貌', '你输了'],
+        ms: ['Berkata “tidak” kepada cabaran berbahaya daripada kawan menunjukkan…', 'Keberanian dan harga diri', 'Anda membosankan', 'Biadab', 'Anda kalah'] }),
+  ],
+  food: [
+    q({ en: ['Which snack is the healthiest choice?', 'A banana', 'A bag of chips', 'Candy', 'A fizzy drink'],
+        ru: ['Какой перекус самый полезный?', 'Банан', 'Пачка чипсов', 'Конфеты', 'Газировка'],
+        zh: ['哪种零食最健康？', '一根香蕉', '一包薯片', '糖果', '一瓶汽水'],
+        ms: ['Snek manakah pilihan paling sihat?', 'Sebiji pisang', 'Sebungkus kerepek', 'Gula-gula', 'Minuman bergas'] }),
+    q({ en: ['In the “Suku-Suku Separuh” plate, half the plate should be…', 'Fruit and vegetables', 'Rice', 'Fried chicken', 'Dessert'],
+        ru: ['В «тарелке Suku-Suku Separuh» половину должны занимать…', 'Фрукты и овощи', 'Рис', 'Жареная курица', 'Десерт'],
+        zh: ['在“Suku-Suku Separuh”餐盘中，一半应该是……', '蔬菜和水果', '米饭', '炸鸡', '甜点'],
+        ms: ['Dalam pinggan “Suku-Suku Separuh”, separuh pinggan sepatutnya…', 'Buah dan sayur', 'Nasi', 'Ayam goreng', 'Pencuci mulut'] }),
+    q({ en: ['Which of these is especially rich in vitamin C?', 'Guava', 'Rice', 'Bread', 'Cheese'],
+        ru: ['Что из этого особенно богато витамином C?', 'Гуава', 'Рис', 'Хлеб', 'Сыр'],
+        zh: ['以下哪种食物特别富含维生素 C？', '番石榴', '米饭', '面包', '奶酪'],
+        ms: ['Antara berikut, yang manakah sangat kaya dengan vitamin C?', 'Jambu batu', 'Nasi', 'Roti', 'Keju'] }),
+    q({ en: ['Why is drinking lots of sugary drinks a problem?', 'Too much sugar raises the risk of tooth decay and diabetes', 'They have too much protein', 'They are too cold', 'They contain no water'],
+        ru: ['Чем вредно пить много сладких напитков?', 'Избыток сахара повышает риск кариеса и диабета', 'В них слишком много белка', 'Они слишком холодные', 'В них нет воды'],
+        zh: ['为什么大量喝含糖饮料是个问题？', '糖太多会增加蛀牙和糖尿病的风险', '它们蛋白质太多', '它们太冰', '它们不含水'],
+        ms: ['Mengapa minum banyak minuman manis menjadi masalah?', 'Gula berlebihan meningkatkan risiko gigi rosak dan diabetes', 'Ia terlalu banyak protein', 'Ia terlalu sejuk', 'Ia tidak mengandungi air'] }),
+  ],
+  time: [
+    q({ en: ['You have homework and want to play. A smart plan is…', 'Homework first, then play', 'Play all night', 'Do neither', 'Copy from a friend'],
+        ru: ['Есть домашка, а хочется поиграть. Разумный план —', 'Сначала уроки, потом игра', 'Играть всю ночь', 'Не делать ни того, ни другого', 'Списать у друга'],
+        zh: ['你有作业又想玩。聪明的计划是……', '先写作业，再玩', '玩一整晚', '两样都不做', '抄朋友的'],
+        ms: ['Anda ada kerja rumah dan mahu bermain. Rancangan yang bijak ialah…', 'Kerja rumah dahulu, kemudian bermain', 'Bermain sepanjang malam', 'Tidak buat kedua-duanya', 'Meniru kawan'] }),
+    q({ en: ['Which task should you do first?', 'An important one that’s due today', 'An unimportant one that’s not urgent', 'Anything that helps you avoid work', 'Scrolling videos'],
+        ru: ['Какую задачу стоит сделать первой?', 'Важную, срок которой — сегодня', 'Неважную и несрочную', 'Любую, лишь бы не работать', 'Листать видео'],
+        zh: ['你应该先做哪项任务？', '重要且今天到期的', '不重要也不紧急的', '任何能逃避工作的事', '刷短视频'],
+        ms: ['Tugasan manakah patut dibuat dahulu?', 'Yang penting dan perlu dihantar hari ini', 'Yang tidak penting dan tidak mendesak', 'Apa sahaja untuk elak kerja', 'Menonton video'] }),
+    q({ en: ['In the Eisenhower matrix, a task that is important but NOT urgent should be…', 'Scheduled for a set time', 'Deleted', 'Always done instantly', 'Handed to anyone'],
+        ru: ['В матрице Эйзенхауэра важную, но НЕ срочную задачу нужно…', 'Запланировать на конкретное время', 'Удалить', 'Всегда делать мгновенно', 'Отдать кому угодно'],
+        zh: ['在艾森豪威尔矩阵中，重要但“不紧急”的任务应该……', '安排在固定时间做', '删掉', '总是马上做', '随便交给别人'],
+        ms: ['Dalam matriks Eisenhower, tugasan penting tetapi TIDAK mendesak patut…', 'Dijadualkan pada masa tertentu', 'Dibuang', 'Sentiasa dibuat serta-merta', 'Diberi kepada sesiapa sahaja'] }),
+    q({ en: ['“Parkinson’s law” says that work tends to…', 'Expand to fill the time you give it', 'Get easier at night', 'Go faster when you’re alone', 'Never end'],
+        ru: ['«Закон Паркинсона» гласит, что работа…', 'Занимает всё время, которое ей отвели', 'Ночью становится легче', 'Идёт быстрее в одиночку', 'Никогда не заканчивается'],
+        zh: ['“帕金森定律”指出，工作往往会……', '膨胀到填满你给它的所有时间', '在晚上变得更容易', '一个人时完成得更快', '永远做不完'],
+        ms: ['“Hukum Parkinson” menyatakan bahawa kerja cenderung…', 'Mengembang mengikut masa yang diberikan', 'Menjadi mudah pada waktu malam', 'Lebih cepat jika seorang diri', 'Tidak pernah selesai'] }),
+  ],
+  grounded: [
+    q({ en: ['You win a game. What shows good sportsmanship?', 'Shake hands and say “good game”', 'Laugh at the other team', 'Brag all day', 'Break the trophy'],
+        ru: ['Ты выиграл матч. Что показывает спортивное поведение?', 'Пожать руки и сказать «хорошая игра»', 'Смеяться над соперниками', 'Хвастаться весь день', 'Сломать кубок'],
+        zh: ['你赢了比赛。什么体现良好的体育精神？', '握手并说“打得好”', '嘲笑对方', '炫耀一整天', '摔坏奖杯'],
+        ms: ['Anda menang perlawanan. Apakah tanda semangat kesukanan?', 'Berjabat tangan dan kata “permainan yang baik”', 'Ketawakan pasukan lawan', 'Berlagak sepanjang hari', 'Pecahkan trofi'] }),
+    q({ en: ['“Ikut resmi padi, makin berisi makin tunduk” means…', 'The more you know, the humbler you become', 'Rice grows fast', 'Eat more rice', 'Bow to everyone all day'],
+        ru: ['«Ikut resmi padi, makin berisi makin tunduk» значит…', 'Чем больше знаешь, тем скромнее становишься', 'Рис растёт быстро', 'Ешь больше риса', 'Кланяйся всем весь день'],
+        zh: ['“Ikut resmi padi, makin berisi makin tunduk”的意思是……', '懂得越多，越谦虚', '稻米长得很快', '多吃米饭', '整天向所有人鞠躬'],
+        ms: ['“Ikut resmi padi, makin berisi makin tunduk” bermaksud…', 'Semakin berilmu, semakin merendah diri', 'Padi tumbuh dengan cepat', 'Makan lebih banyak nasi', 'Tunduk kepada semua orang sepanjang hari'] }),
+    q({ en: ['You realise you were wrong in an argument. What’s the grounded thing to do?', 'Admit it and apologise', 'Keep arguing anyway', 'Change the subject', 'Blame the other person'],
+        ru: ['Ты понял, что был неправ в споре. Как поступить достойно?', 'Признать и извиниться', 'Всё равно спорить дальше', 'Сменить тему', 'Обвинить собеседника'],
+        zh: ['你意识到自己在争论中错了。踏实的做法是什么？', '承认并道歉', '继续争下去', '转移话题', '怪对方'],
+        ms: ['Anda sedar anda salah dalam satu pertengkaran. Apakah tindakan yang merendah diri?', 'Mengaku dan meminta maaf', 'Terus bertengkar', 'Tukar topik', 'Salahkan orang lain'] }),
+    q({ en: ['Why do humble leaders often build stronger teams?', 'They listen and share credit, so people trust them', 'They never decide anything', 'They do all the work alone', 'They never speak'],
+        ru: ['Почему скромные лидеры часто создают более сильные команды?', 'Они слушают и делятся заслугами, поэтому им доверяют', 'Они никогда ничего не решают', 'Они делают всё сами', 'Они никогда не говорят'],
+        zh: ['为什么谦虚的领导者往往能建立更强的团队？', '他们倾听并分享功劳，所以大家信任他们', '他们从不做决定', '他们独自完成所有工作', '他们从不说话'],
+        ms: ['Mengapa pemimpin yang merendah diri sering membina pasukan yang lebih kuat?', 'Mereka mendengar dan berkongsi pujian, jadi orang mempercayai mereka', 'Mereka tidak pernah membuat keputusan', 'Mereka buat semua kerja sendiri', 'Mereka tidak pernah bercakap'] }),
+  ],
+  learning: [
+    q({ en: ['What’s a good way to remember new words?', 'Practise them a little every day', 'Read them once', 'Never review them', 'Learn them all the night before'],
+        ru: ['Как лучше запоминать новые слова?', 'Понемногу повторять каждый день', 'Прочитать один раз', 'Никогда не повторять', 'Выучить всё за ночь до теста'],
+        zh: ['记新单词的好方法是什么？', '每天练习一点', '读一遍就好', '从不复习', '考前一晚全部背完'],
+        ms: ['Apakah cara yang baik untuk mengingati perkataan baharu?', 'Berlatih sedikit setiap hari', 'Baca sekali sahaja', 'Tidak pernah mengulang kaji', 'Hafal semua pada malam sebelumnya'] }),
+    q({ en: ['What does “growth mindset” mean?', 'Your abilities can grow with effort', 'You are born smart or not', 'Only adults can learn', 'Mistakes mean you’re bad at it'],
+        ru: ['Что значит «мышление роста»?', 'Способности можно развить усилиями', 'Умным либо рождаешься, либо нет', 'Учиться могут только взрослые', 'Ошибки значат, что у тебя не получится'],
+        zh: ['“成长型思维”是什么意思？', '能力可以通过努力不断提升', '聪明是天生的', '只有大人才能学习', '犯错说明你不行'],
+        ms: ['Apakah maksud “minda berkembang” (growth mindset)?', 'Kebolehan boleh berkembang dengan usaha', 'Kita dilahirkan pandai atau tidak', 'Hanya orang dewasa boleh belajar', 'Kesilapan bermakna anda tidak pandai'] }),
+    q({ en: ['Which study method is proven to work well?', 'Testing yourself with practice questions', 'Highlighting everything', 'Only rereading many times', 'Studying with the TV on'],
+        ru: ['Какой способ учиться доказанно работает хорошо?', 'Проверять себя тренировочными вопросами', 'Выделять маркером всё подряд', 'Только перечитывать много раз', 'Учить под телевизор'],
+        zh: ['哪种学习方法被证明效果很好？', '用练习题自我测试', '把所有内容都划重点', '只是反复重读', '开着电视学习'],
+        ms: ['Kaedah belajar manakah terbukti berkesan?', 'Menguji diri dengan soalan latihan', 'Menyerlahkan semua perkara', 'Hanya membaca semula berkali-kali', 'Belajar sambil menonton TV'] }),
+    q({ en: ['“Spaced repetition” means…', 'Reviewing at growing intervals over time', 'Studying in outer space', 'Repeating one page 100 times in a row', 'Taking a very long break'],
+        ru: ['«Интервальное повторение» — это…', 'Повторение материала через всё увеличивающиеся промежутки', 'Учёба в открытом космосе', 'Повторить одну страницу 100 раз подряд', 'Очень долгий перерыв'],
+        zh: ['“间隔重复”是指……', '按逐渐拉长的间隔复习', '在太空里学习', '连续把一页重复 100 遍', '休息很长时间'],
+        ms: ['“Ulangan berjarak” (spaced repetition) bermaksud…', 'Mengulang kaji pada selang masa yang semakin panjang', 'Belajar di angkasa lepas', 'Mengulang satu halaman 100 kali berturut-turut', 'Berehat sangat lama'] }),
+  ],
+  kindness: [
+    q({ en: ['A new student sits alone at lunch. A kind thing to do is…', 'Invite them to sit with you', 'Ignore them', 'Take their seat', 'Whisper about them'],
+        ru: ['Новенький сидит в столовой один. Доброе дело —', 'Позвать его за свой стол', 'Не замечать его', 'Занять его место', 'Шептаться о нём'],
+        zh: ['新同学午餐时一个人坐着。友善的做法是……', '邀请他和你一起坐', '不理他', '抢他的座位', '在背后议论他'],
+        ms: ['Pelajar baharu duduk seorang diri waktu rehat. Perbuatan baik ialah…', 'Ajak dia duduk bersama', 'Abaikan dia', 'Ambil tempat duduknya', 'Berbisik tentang dia'] }),
+    q({ en: ['Being kind online means…', 'Thinking before you post or comment', 'Leaving mean comments', 'Sharing other people’s secrets', 'Spamming everyone'],
+        ru: ['Быть добрым в интернете — значит…', 'Думать, прежде чем публиковать или комментировать', 'Оставлять злые комментарии', 'Раскрывать чужие секреты', 'Спамить всем'],
+        zh: ['在网上友善意味着……', '发帖或评论前先想一想', '留恶意评论', '分享别人的秘密', '到处刷屏'],
+        ms: ['Bersikap baik di dalam talian bermaksud…', 'Berfikir sebelum menyiar atau mengulas', 'Meninggalkan komen jahat', 'Berkongsi rahsia orang lain', 'Menghantar spam kepada semua'] }),
+    q({ en: ['What is “empathy”?', 'Understanding and sharing how someone else feels', 'Feeling sorry for yourself', 'Being the same as everyone', 'Not caring at all'],
+        ru: ['Что такое «эмпатия»?', 'Понимать и разделять чувства другого человека', 'Жалеть себя', 'Быть как все', 'Полное равнодушие'],
+        zh: ['什么是“同理心”？', '理解并感受他人的情绪', '自怜', '和所有人一样', '完全不在乎'],
+        ms: ['Apakah “empati”?', 'Memahami dan merasai perasaan orang lain', 'Kasihan pada diri sendiri', 'Menjadi sama seperti orang lain', 'Tidak peduli langsung'] }),
+    q({ en: ['Research on kindness suggests that helping others usually…', 'Makes the helper happier too', 'Makes you lose friends', 'Has no effect on mood', 'Is only for adults'],
+        ru: ['Исследования доброты показывают, что помощь другим обычно…', 'Делает счастливее и того, кто помогает', 'Приводит к потере друзей', 'Никак не влияет на настроение', 'Подходит только взрослым'],
+        zh: ['关于善良的研究表明，帮助别人通常会……', '让帮助者自己也更快乐', '让你失去朋友', '对心情没有影响', '只适合大人'],
+        ms: ['Kajian tentang kebaikan menunjukkan bahawa membantu orang lain biasanya…', 'Membuatkan si penolong lebih gembira juga', 'Menyebabkan hilang kawan', 'Tiada kesan pada emosi', 'Hanya untuk orang dewasa'] }),
+  ],
+  resilience: [
+    q({ en: ['You lost a big match. A resilient reaction is…', 'Feel it, then plan how to improve', 'Never play again', 'Blame the referee forever', 'Break your gear'],
+        ru: ['Ты проиграл важный матч. Стойкая реакция —', 'Пережить это, а потом спланировать, как стать лучше', 'Больше никогда не играть', 'Вечно винить судью', 'Сломать экипировку'],
+        zh: ['你输掉了一场重要比赛。有抗逆力的反应是……', '接受情绪，然后计划如何进步', '再也不比赛', '永远怪裁判', '砸坏装备'],
+        ms: ['Anda kalah dalam perlawanan besar. Reaksi yang berdaya tahan ialah…', 'Terima perasaan itu, kemudian rancang untuk memperbaiki diri', 'Tidak bermain lagi', 'Salahkan pengadil selamanya', 'Pecahkan peralatan'] }),
+    q({ en: ['Which of these can you control?', 'Your effort and your attitude', 'The weather', 'Other people’s opinions', 'Yesterday'],
+        ru: ['Что из этого ты можешь контролировать?', 'Свои усилия и отношение', 'Погоду', 'Мнение других людей', 'Вчерашний день'],
+        zh: ['以下哪项是你能控制的？', '你的努力和态度', '天气', '别人的看法', '昨天'],
+        ms: ['Antara berikut, apakah yang boleh anda kawal?', 'Usaha dan sikap anda', 'Cuaca', 'Pendapat orang lain', 'Semalam'] }),
+    q({ en: ['Which of these helps build resilience?', 'Good sleep, supportive friends and asking for help', 'Hiding all your feelings', 'Never trying hard things', 'Always staying alone'],
+        ru: ['Что помогает развить стойкость?', 'Хороший сон, поддержка друзей и умение просить помощи', 'Скрывать все чувства', 'Никогда не браться за трудное', 'Всегда быть одному'],
+        zh: ['以下哪项有助于培养抗逆力？', '充足睡眠、支持你的朋友，以及懂得求助', '隐藏所有情绪', '从不尝试困难的事', '总是一个人待着'],
+        ms: ['Antara berikut, apakah yang membantu membina daya tahan?', 'Tidur yang cukup, kawan yang menyokong dan meminta bantuan', 'Menyembunyikan semua perasaan', 'Tidak pernah mencuba perkara sukar', 'Sentiasa bersendirian'] }),
+    q({ en: ['“Reframing” a setback means…', 'Looking at it from a more helpful angle', 'Putting it in a picture frame', 'Pretending it never happened', 'Blaming yourself even harder'],
+        ru: ['«Рефрейминг» неудачи — это…', 'Посмотреть на неё под более полезным углом', 'Повесить её в рамку', 'Сделать вид, что ничего не было', 'Винить себя ещё сильнее'],
+        zh: ['“重新框定”挫折是指……', '从更有帮助的角度看待它', '把它装进相框', '假装从没发生过', '更狠地责怪自己'],
+        ms: ['“Membingkai semula” (reframing) kegagalan bermaksud…', 'Melihatnya dari sudut yang lebih membantu', 'Memasukkannya ke dalam bingkai gambar', 'Berpura-pura ia tidak berlaku', 'Menyalahkan diri dengan lebih teruk'] }),
+  ],
+  gratitude: [
+    q({ en: ['Someone helps you. What’s the simplest way to show gratitude?', 'Say “thank you”', 'Say nothing', 'Ask for more', 'Walk away'],
+        ru: ['Тебе помогли. Как проще всего выразить благодарность?', 'Сказать «спасибо»', 'Промолчать', 'Попросить ещё', 'Уйти'],
+        zh: ['有人帮助了你。表达感谢最简单的方式是什么？', '说“谢谢”', '什么都不说', '要求更多', '走开'],
+        ms: ['Seseorang membantu anda. Apakah cara paling mudah untuk menunjukkan penghargaan?', 'Ucap “terima kasih”', 'Diam sahaja', 'Minta lagi', 'Berlalu pergi'] }),
+    q({ en: ['A “gratitude journal” is…', 'A notebook for things you’re thankful for', 'A diary of complaints', 'A bank statement', 'A shopping list'],
+        ru: ['«Дневник благодарности» — это…', 'Тетрадь, куда записываешь то, за что благодарен', 'Дневник жалоб', 'Банковская выписка', 'Список покупок'],
+        zh: ['“感恩日记”是……', '记录你所感激事情的笔记本', '抱怨日记', '银行账单', '购物清单'],
+        ms: ['“Jurnal kesyukuran” ialah…', 'Buku nota untuk perkara yang anda syukuri', 'Diari rungutan', 'Penyata bank', 'Senarai membeli-belah'] }),
+    q({ en: ['Regularly practising gratitude has been linked to…', 'Better mood and sleep', 'Worse eyesight', 'Losing friends', 'Nothing at all'],
+        ru: ['С регулярной практикой благодарности связывают…', 'Лучшее настроение и сон', 'Ухудшение зрения', 'Потерю друзей', 'Ничего'],
+        zh: ['经常练习感恩与什么有关？', '更好的心情和睡眠', '视力变差', '失去朋友', '没有任何关系'],
+        ms: ['Amalan bersyukur secara berkala dikaitkan dengan…', 'Emosi dan tidur yang lebih baik', 'Penglihatan semakin teruk', 'Hilang kawan', 'Tiada apa-apa'] }),
+    q({ en: ['Which is a good gratitude habit?', 'Writing down three good things each night', 'Comparing yourself with everyone online', 'Only thinking about what’s missing', 'Never thanking anyone'],
+        ru: ['Какая привычка благодарности хорошая?', 'Каждый вечер записывать три хороших события', 'Сравнивать себя со всеми в интернете', 'Думать только о том, чего не хватает', 'Никого никогда не благодарить'],
+        zh: ['以下哪个是好的感恩习惯？', '每晚写下三件好事', '在网上和所有人比较', '只想着缺少什么', '从不感谢任何人'],
+        ms: ['Manakah tabiat bersyukur yang baik?', 'Menulis tiga perkara baik setiap malam', 'Membandingkan diri dengan semua orang di internet', 'Hanya memikirkan apa yang tiada', 'Tidak pernah berterima kasih kepada sesiapa'] }),
   ],
 };
 
-export function pickQuestion(topic, difficulty) {
-  const pool = QUESTIONS[topic][Math.min(difficulty, QUESTIONS[topic].length - 1)];
-  return pool[Math.floor(Math.random() * pool.length)];
+// the lesson in the current language
+export function lessonText(topic) {
+  const l = LESSONS[topic], v = l[getLang()] || l.en;
+  return { title: v[0], body: v[1], tip: v[2] };
 }
 
-// tiny JS highlighter for the code panels — one pass, so it never re-highlights its own markup
-const TOKENS = /(\/\/.*$)|("[^"\n]*"|`[^`]*`)|\b(for|let|const|var|function|return|async|await|if|else|new|typeof|try|catch|finally|throw|console|setTimeout|Promise|JSON|Object)\b|\b(\d+)\b/gm;
-export function highlight(src) {
-  const esc = src.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return esc.replace(TOKENS, (m, com, str, kw, num) =>
-    com ? `<span class="c-com">${com}</span>` :
-    str ? `<span class="c-str">${str}</span>` :
-    kw ? `<span class="c-kw">${kw}</span>` :
-    `<span class="c-num">${num}</span>`);
+// one question for this topic and difficulty, options shuffled; `a` is the index of the right answer
+export function pickQuestion(topic, difficulty) {
+  const pool = QUESTIONS[topic];
+  const item = pool[Math.min(difficulty, pool.length - 1)];
+  const v = item[getLang()] || item.en;
+  const order = v.slice(1).map((_, i) => i).sort(() => Math.random() - 0.5);
+  return { q: v[0], o: order.map(i => v[1 + i]), a: order.indexOf(0) };
 }

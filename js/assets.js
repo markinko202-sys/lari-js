@@ -1,23 +1,27 @@
-// Loads the Blender-made GLB files and keeps every top-level node as a prototype to clone.
+// Loads the Blender-made GLB files (Draco-compressed) and keeps every top-level node as a prototype to clone.
+// The first three worlds load at boot; the later kits stream in the background and are awaited on demand.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const FILES = ['characters', 'hats', 'common', 'enemies', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
-const VERSION = '3';
+const CORE = ['characters', 'hats', 'common', 'enemies', 'items', 'kit_village', 'kit_forest', 'kit_volcano', 'kit_city'];
+const LATER = ['kit_beach', 'kit_cave', 'kit_kota'];
+const VERSION = '4';
 export const lib = {};
 
-export async function loadAll(onProgress) {
-  const loader = new GLTFLoader();
-  let done = 0;
-  await Promise.all(FILES.map(async f => {
-    const gltf = await loader.loadAsync(`assets/${f}.glb?v=${VERSION}`);
+const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/gltf/');
+const loader = new GLTFLoader().setDRACOLoader(draco);
+const pending = {};
+
+function loadFile(f) {
+  return (pending[f] ||= loader.loadAsync(`assets/${f}.glb?v=${VERSION}`).then(gltf => {
     for (const node of [...gltf.scene.children]) {
       node.position.set(0, 0, 0);
       node.traverse(o => {
         if (o.isMesh) {
           o.castShadow = true; o.receiveShadow = true;
           o.geometry.userData.lib = true;
-          const m = o.material;
+          const m = o.material; m.userData.lib = true;
           // glTF emissive strength comes through as emissiveIntensity; keep glows readable but not blown out
           if (m.emissiveIntensity > 1) m.emissiveIntensity = Math.min(m.emissiveIntensity, 3);
           if (m.transmission > 0) { m.transparent = true; m.opacity = 0.55; m.transmission = 0; m.roughness = 0.1; }
@@ -25,10 +29,19 @@ export async function loadAll(onProgress) {
       });
       lib[node.name] = node;
     }
-    onProgress?.(++done / FILES.length, f);
   }));
+}
+
+export async function loadAll(onProgress) {
+  let done = 0;
+  await Promise.all(CORE.map(f => loadFile(f).then(() => onProgress?.(++done / CORE.length, f))));
+  for (const f of LATER) loadFile(f).catch(err => console.warn('kit failed', f, err));   // warm up, don't block the menu
   return lib;
 }
+
+// the kit a theme needs (resolves at once when it is already in)
+const KIT = { beach: 'kit_beach', cave: 'kit_cave', kota: 'kit_kota' };
+export function ensureTheme(theme) { return KIT[theme] ? loadFile(KIT[theme]) : Promise.resolve(); }
 
 export function make(name) {
   const p = lib[name];
@@ -38,7 +51,7 @@ export function make(name) {
 
 // Bake a prototype into InstancedMeshes (one per sub-mesh) for many copies. Items are {x, y, z, s?, ry?}.
 // Copies are split into chunks along X so the camera frustum culls everything off screen.
-const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _local = new THREE.Matrix4(), _t = new THREE.Matrix4();
+const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _t = new THREE.Matrix4();
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _sc = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 export function instance(name, items, parent, { shadows = true, chunk = 48 } = {}) {
   const proto = lib[name];
@@ -71,4 +84,15 @@ export function byName(root, name) {
   let hit = null;
   root.traverse(o => { if (!hit && (o.name === name || o.name.replace(/(_\d+|\d{3})+$/, '') === name)) hit = o; });
   return hit;
+}
+
+// every distinct material under a node gets its own copy, so tinting one object never tints its siblings
+export function ownMaterials(root) {
+  const seen = new Map();
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    if (!seen.has(o.material)) seen.set(o.material, o.material.clone());
+    o.material = seen.get(o.material);
+  });
+  return [...seen.values()];
 }
