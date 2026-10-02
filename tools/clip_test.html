@@ -19,9 +19,9 @@
 // Poses every rig through the same targets the game uses and checks whether arm vertices end up inside
 // the head/hair/torso/hat volumes (each approximated by the ellipsoid inscribed in its local bounding box).
 import * as THREE from 'three';
-import { loadAll, byName } from './js/assets.js?v=8';
-import { Rig, CHAR_META, EMOTES, EMOTE_TIME } from './js/actors.js?v=8';
-import { SHOP } from './js/save.js?v=8';
+import { loadAll, byName } from './js/assets.js?v=9';
+import { Rig, CHAR_META, EMOTES, EMOTE_TIME } from './js/actors.js?v=9';
+import { SHOP } from './js/save.js?v=9';
 
 const out = document.getElementById('out');
 const LIMIT = +(new URLSearchParams(location.search).get('limit') || 0.06);   // how deep (0…1 of the volume) counts as clipping
@@ -66,8 +66,17 @@ function check(charId, hatId) {
   const hat = hatId !== 'none' ? volumes(rig.model.getObjectByName(`Hat_${hatId}`) || new THREE.Group(), 0.03) : [];
   const solids = [...volumes(head, 0.1), ...(torso ? [volumes(torso, 0.2).find(x => x.mesh === torso)].filter(Boolean) : []), ...hat];
   const movers = []; for (const a of [rig.parts.armL, rig.parts.armR]) a?.traverse(o => o.isMesh && movers.push(o));
+  const lifts = new Map();
+  // how tall the head really is (vs the 1.42 physics box), measured at rest
+  rig.update(0.5, 0, null, 'menu'); rig.root.updateMatrixWorld(true);
+  let top = 0; rig.parts.head.traverse(o => { if (o.isMesh && !/Ear|Antenna|Tiara|Bun|Hat|Casque|Beak|Pom|Cone/.test(o.name)) { o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld); top = Math.max(top, bb.max.y); } });
+  heads[charId] = +top.toFixed(2);
   const hits = [];
   const test = (pose) => {
+    // the floor: after the pose, nothing may be below the character's feet; note how much the rig had to lift itself
+    const low = rig.lowestPoint();
+    if (low < -0.005) hits.push({ pose, arm: 'BODY', into: 'FLOOR', n: 1, depth: +(-low).toFixed(2) });
+    if (rig.lift > 0.12) lifts.set(pose.split(' ')[0], Math.max(lifts.get(pose.split(' ')[0]) || 0, +rig.lift.toFixed(2)));
     rig.root.updateMatrixWorld(true);
     for (const m of movers) for (const s of solids) {
       const r = inside(m, s);
@@ -89,6 +98,7 @@ function check(charId, hatId) {
     rig.update(0.5, t, b, 'play'); test(`play:${name}`);
   }
   scene.remove(rig.root); rig.dispose();
+  if (lifts.size && hatId === 'none') liftNotes.push(`${charId}: ${[...lifts].map(([k, v]) => `${k} +${v}`).join(', ')}`);
   // collapse: worst hit per (pose family, arm side, part)
   const worst = new Map();
   for (const h of hits) {
@@ -98,7 +108,7 @@ function check(charId, hatId) {
   return [...worst.entries()].map(([k, h]) => `${k} (${h.n} verts, depth ${h.depth})`);
 }
 
-const lines = []; const report = {};
+const lines = []; const report = {}; const heads = {}; const liftNotes = [];
 for (const c of SHOP.characters) {
   const res = check(c.id, 'none');
   report[c.id] = res;
@@ -123,6 +133,8 @@ for (const c of SHOP.characters) for (const h of SHOP.hats.filter(h => h.id !== 
   if (res.length) lines.push(`✗ hat ${h.id} on ${c.id}\n    ${[...new Set(res)].join('\n    ')}`);
   scene.remove(rig.root); rig.dispose();
 }
+lines.push('', `head tops (physics box 1.7): ${Object.entries(heads).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+lines.push(`poses that lean on the floor guard: ${liftNotes.length ? '\n    ' + liftNotes.join('\n    ') : 'none'}`);
 out.innerHTML = lines.map(l => `<span class="${l.startsWith('✓') ? 'ok' : 'bad'}">${l.replace(/</g, '&lt;')}</span>`).join('\n');
 window.__clip = report;
 document.title = 'done';

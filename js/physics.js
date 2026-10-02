@@ -2,7 +2,7 @@
 // World units: 1 tile = 1 unit. X right, Y up. The player is an axis-aligned box.
 
 export const P = {
-  width: 0.62, height: 1.42,
+  width: 0.62, height: 1.7,                           // as tall as the characters' heads, so a head never pokes into a block
   accel: 60, airAccel: 38, friction: 48, maxSpeed: 7.2,
   gravity: 34, maxFall: 18,
   jumpV: 12.4, doubleJumpV: 12.0, jumpCut: 0.55,       // releasing jump early cuts the rise…

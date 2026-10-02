@@ -1,7 +1,7 @@
 // The player's 3D rig and every interactive thing in a level.
 import * as THREE from 'three';
-import { make, byName, ownMaterials } from './assets.js?v=8';
-import { aabb, T, P, solid, cell } from './physics.js?v=8';
+import { make, byName, ownMaterials } from './assets.js?v=9';
+import { aabb, T, P, solid, cell } from './physics.js?v=9';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
@@ -38,7 +38,7 @@ export const EMOTES = {
   bow(k, p) { const s = bell(p); k.armR = 1.25 * s; k.armRx = -0.25 * s; k.armL = 0.2 * s; k.lean = -0.38 * s; k.head = -0.15 * s; },
   dance(k, p, t) { const s = bell(p), b = Math.sin(t * 12); k.y = Math.abs(b) * 0.18 * s; k.spin = b * 0.5 * s; k.armLx = (1.6 + b * 0.8) * s; k.armRx = (1.6 - b * 0.8) * s; k.legL = b * 0.4 * s; k.legR = -b * 0.4 * s; },
   cheer(k, p, t) { const s = bell(p), b = Math.sin(t * 14); k.armLx = (2.4 + b * 0.2) * s; k.armRx = (2.4 - b * 0.2) * s; k.y = Math.abs(Math.sin(t * 7)) * 0.2 * s; k.head = 0.15 * s; },
-  twirl(k, p) { const q = clamp(p / 0.7, 0, 1); k.spin = ease(q) * Math.PI * 2; k.armLx = 1.3 * bell(q); k.armRx = 1.3 * bell(q); const c = clamp((p - 0.7) / 0.3, 0, 1); k.y = -bell(c) * 0.12; k.lean = -0.2 * bell(c); },
+  twirl(k, p) { const q = clamp(p / 0.7, 0, 1); k.spin = ease(q) * Math.PI * 2; k.armLx = 1.3 * bell(q); k.armRx = 1.3 * bell(q); const c = clamp((p - 0.7) / 0.3, 0, 1); k.legR = -0.35 * bell(c); k.lean = -0.12 * bell(c); k.armLx += 0.5 * bell(c); k.armRx += 0.5 * bell(c); },   // spin, then a curtsy: one foot back, never sinking
   hop(k, p, t) { const s = bell(p); k.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.45 * s; k.legL = k.legR = 0.4 * s; k.head = Math.sin(t * 20) * 0.15 * s; k.tail = Math.sin(t * 25) * 0.8; },
   roar(k, p, t) { const s = bell(p); k.lean = (p < 0.35 ? 0.25 : -0.3) * s; k.armL = k.armR = 1.9 * s; k.armLx = k.armRx = 0.4 * s; k.head = (p < 0.35 ? 0.3 : -0.2 + Math.sin(t * 40) * 0.05) * s; k.tail = 1.2 * s; },
   flap(k, p, t) { const s = bell(p), f = Math.sin(t * 22); k.armLx = k.armRx = (1.2 + f * 0.9) * s; k.y = (0.25 + Math.sin(t * 11) * 0.08) * s; k.tail = 0.6 * s; },
@@ -47,6 +47,7 @@ export const EMOTES = {
 export const EMOTE_TIME = { flip: 1.4, twirl: 1.7, robot: 1.8, victory: 99 };
 const POSE_KEYS = ['legL', 'legR', 'armL', 'armR', 'armLx', 'armRx', 'head', 'lean', 'y', 'spin', 'flip', 'tail'];
 const PIVOT = 0.85;   // waist height of every character
+const _rigInv = new THREE.Matrix4(), _rigM = new THREE.Matrix4(), _rigC = new THREE.Vector3();
 
 // ------------------------------------------------------------------ player visual
 export class Rig {
@@ -67,6 +68,8 @@ export class Rig {
     }
     // own copies of the materials, so the star glow tints only this rig
     this.mats = ownMaterials(this.root).map(m => ({ m, e: m.emissive?.clone(), i: m.emissiveIntensity }));
+    this.meshes = []; this.root.traverse(o => { if (o.isMesh) { o.geometry.boundingBox || o.geometry.computeBoundingBox(); this.meshes.push(o); } });
+    this.lift = 0;
     this.phase = 0; this.squash = 1; this.yaw = -0.55; this.turn = 0; this.facingOffset = -0.25;
     this.emoteName = null; this.emoteT = 0;
     this.k = {};
@@ -153,13 +156,33 @@ export class Rig {
     if (b?.jumped) { this.squash = 1.18; b.jumped = null; }
     this.squash = damp(this.squash, 1, 10, dt);
     this.model.scale.set(1 / Math.sqrt(this.squash), this.squash, 1 / Math.sqrt(this.squash));
+    // a lift (hop, flip, float) raises the whole spinning body — applied outside the rotation, so upside down it still goes up
     this.bob = damp(this.bob || 0, k.y, 20, dt);
-    this.model.position.y = -PIVOT + this.bob;
-
-    if (b) {
-      this.root.position.set(b.x, b.y, 0);
-      if (this.trail) this.trail.update(dt, b, Math.abs(b.vx) > 3 || b.dash > 0 || b.gliding);
+    this.model.position.y = -PIVOT;
+    this.flipper.position.y = PIVOT + this.bob;
+    if (b) this.root.position.set(b.x, b.y, 0);
+    // nothing may sink below the floor the character stands on (the bottom of its physics box):
+    // if a pose dips a toe, a hand or the head under it, the body rises and rests on that point instead
+    const low = this.lowestPoint();
+    this.lift = low < 0 ? -low : 0;
+    if (this.lift) this.flipper.position.y += this.lift;
+    if (b && this.trail) this.trail.update(dt, b, Math.abs(b.vx) > 3 || b.dash > 0 || b.gliding);
+  }
+  // the lowest corner of any part, in the rig's own space (0 = the floor under its feet)
+  lowestPoint() {
+    this.root.updateMatrixWorld(true);
+    _rigInv.copy(this.root.matrixWorld).invert();
+    let min = Infinity;
+    for (const m of this.meshes) {
+      if (!m.visible) continue;
+      _rigM.multiplyMatrices(_rigInv, m.matrixWorld);
+      const a = m.geometry.boundingBox.min, z = m.geometry.boundingBox.max;
+      for (let i = 0; i < 8; i++) {
+        _rigC.set(i & 1 ? z.x : a.x, i & 2 ? z.y : a.y, i & 4 ? z.z : a.z).applyMatrix4(_rigM);
+        if (_rigC.y < min) min = _rigC.y;
+      }
     }
+    return min;
   }
   setInvulnerable(on, t) { this.model.visible = !on || Math.sin(t * 40) > -0.2; }
   // star power: a cycling rainbow glow

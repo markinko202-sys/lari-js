@@ -1,15 +1,15 @@
 // LARI.js — game controller: screens, input, the play loop, life-lesson gates, bosses, shop and save.
 import * as THREE from 'three';
-import { loadAll, ensureTheme } from './assets.js?v=8';
-import { World } from './world.js?v=8';
-import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js?v=8';
-import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js?v=8';
-import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js?v=8';
-import { lessonText, pickQuestion } from './quiz.js?v=8';
-import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js?v=8';
-import { t, setLang, getLang, detectLang, LANGS } from './i18n.js?v=8';
-import { thumbnail } from './thumbs.js?v=8';
-import * as audio from './audio.js?v=8';
+import { loadAll, ensureTheme } from './assets.js?v=9';
+import { World } from './world.js?v=9';
+import { Rig, Bursts, spawnEntities, makePickup, makeShot } from './actors.js?v=9';
+import { makeBody, step, overlapsHazard, aabb, cell, T, P } from './physics.js?v=9';
+import { LEVELS, SKILLS, SKILL_ORDER, movesFrom } from './levels.js?v=9';
+import { lessonText, pickQuestion } from './quiz.js?v=9';
+import { load, save, reset as resetSave, SHOP, DIFFICULTY } from './save.js?v=9';
+import { t, setLang, getLang, detectLang, LANGS } from './i18n.js?v=9';
+import { thumbnail } from './thumbs.js?v=9';
+import * as audio from './audio.js?v=9';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
