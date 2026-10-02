@@ -52,7 +52,11 @@ export function load() {
   return mem;
 }
 export function save() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch { /* blocked */ } }
-export function reset() { mem = structuredClone(DEFAULT); save(); return mem; }
+// reset in place: main.js holds a reference to this exact object, so swapping it out would stop saves
+export function reset() {
+  for (const k of Object.keys(mem)) delete mem[k];
+  Object.assign(mem, structuredClone(DEFAULT)); save(); return mem;
+}
 
 function merge(base, over) {
   for (const k in over) {

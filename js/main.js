@@ -49,7 +49,10 @@ function directionDown(k) {
 addEventListener('keydown', e => {
   audio.unlock();
   if ((e.code === 'Escape' || e.code === 'KeyP') && state === 'play') { pause(true); return; }
-  if (state === 'quiz' && /^Digit[1-4]$/.test(e.code)) { $$('#quiz-options button')[+e.code.slice(5) - 1]?.click(); return; }
+  if (state === 'quiz') {
+    if (/^Digit[1-4]$/.test(e.code)) { const o = $$('#quiz-options button')[+e.code.slice(5) - 1]; if (o && !o.disabled && !o.classList.contains('gone')) o.click(); return; }
+    if (e.repeat && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); return; }   // a held jump key must not answer
+  }
   const k = KEYMAP[e.code]; if (!k) return;
   if (state === 'play') e.preventDefault();
   if (!keys[k] && (k === 'jump' || k === 'dash')) edges[k] = true;
@@ -110,16 +113,26 @@ function updateWallet() { $$('.coins-val').forEach(e => (e.textContent = profile
 let world = null, rig = null, stage = null, bursts = null;
 function swapWorld(w) { world?.dispose(); rig?.dispose(); world = w; }
 
-function enterShowroom() {
-  if (world?.kind === 'showroom' && world.charKey === charKey()) return;
-  const w = new World(renderer); w.kind = 'showroom'; w.charKey = charKey();
+function showroomTheme() {
   const done = Object.keys(profile.levels).filter(k => profile.levels[k].done);
-  const theme = done.includes('forest') ? 'volcano' : done.includes('village') ? 'forest' : 'village';
-  stage = w.buildShowroom(theme);
+  return done.includes('forest') ? 'volcano' : done.includes('village') ? 'forest' : 'village';
+}
+function enterShowroom() {
+  if (world?.kind === 'showroom' && world.theme === showroomTheme()) {
+    if (world.charKey !== charKey()) showroomRig();
+    return;
+  }
+  const w = new World(renderer); w.kind = 'showroom'; w.theme = showroomTheme();
+  stage = w.buildShowroom(w.theme);
   swapWorld(w);
+  showroomRig();
+}
+function showroomRig() {
+  if (rig) { world.scene.remove(rig.root); rig.dispose(); }
   const l = look();
-  rig = new Rig(l.character, l.hat, trailColor(l), w.scene);
-  rig.root.position.set(0, 0, 0); w.scene.add(rig.root);
+  world.charKey = charKey();
+  rig = new Rig(l.character, l.hat, trailColor(l), world.scene);
+  rig.root.position.set(0, 0, 0); world.scene.add(rig.root);
 }
 let tryOn = {};                                   // shop preview, not bought yet
 const look = () => ({ ...profile.equipped, ...(state === 'shop' ? tryOn : {}) });
@@ -218,19 +231,19 @@ function renderSettings() {
 $('#sound-btn').addEventListener('click', () => { profile.sound = !profile.sound; save(); audio.setMuted(!profile.sound); renderSettings(); });
 $('#reset-btn').addEventListener('click', () => {
   if (!confirm('Reset all coins, purchases and progress?')) return;
-  Object.assign(profile, resetSave()); world = null; enterShowroom(); renderSettings(); updateWallet();
+  resetSave(); world.charKey = null; enterShowroom(); renderSettings(); updateWallet();
 });
 
 // ------------------------------------------------------------------ play
 let run = null;   // the current level attempt
 const game = {    // the interface entities talk to
   get body() { return run.body; }, get grid() { return world.grid; }, get diff() { return DIFFICULTY[run.difficulty]; },
-  get magnet() { return run.magnet; }, get inQuiz() { return state === 'quiz'; },
+  get magnet() { return run.magnet; }, get inQuiz() { return state === 'quiz'; }, get dead() { return run.dead > 0; },
   sfx: audio.sfx,
   collectCoin(x, y, n = 1) { run.coins += n; audio.sfx('coin'); bursts.emit(x, y, '#f2b632', 8, 3, 2); hud(); },
   touchEnemy(en) {
     const b = run.body;
-    if (!en.alive || !aabb(b, en.box)) return;
+    if (!en.alive || run.dead > 0 || !aabb(b, en.box)) return;
     if (b.dash > 0 && en.dashable) { kill(en, 'dash'); return; }                        // a dash breaks most enemies
     const fromAbove = b.vy < -1 && b.y > en.box.y + en.box.h * 0.35;
     if (fromAbove && en.stompable) {
@@ -247,7 +260,10 @@ const game = {    // the interface entities talk to
     }
   },
   spawnHeart(x, y) { const h = makeHeart(x, y); world.scene.add(h.obj); run.ents.push(h); },
-  gainHeart() { run.hearts = Math.min(run.maxHearts, run.hearts + 1); audio.sfx('heart'); bursts.emit(run.body.x, run.body.y + 1, '#e2384f', 10, 3, 3); hud(); },
+  gainHeart() {
+    if (run.hearts >= run.maxHearts) { game.collectCoin(run.body.x, run.body.y + 1, 5); return; }   // full health: worth coins instead
+    run.hearts++; audio.sfx('heart'); bursts.emit(run.body.x, run.body.y + 1, '#e2384f', 10, 3, 3); hud();
+  },
   setCheckpoint(x, y) { run.check = { x, y }; audio.sfx('check'); toast('Checkpoint', 'progress saved'); },
   reachGate(gate) { openGate(gate); },
   finish() { finishLevel(); },
@@ -279,6 +295,7 @@ function startLevel(i) {
   const goal = run.ents.find(e => e.type === 'goal');
   run.goalX = goal ? goal.obj.position.x : L.w;
   camState.x = run.body.x; camState.y = run.body.y;
+  clearEdges(); acc = 0;
   $('#hud-level').textContent = def.name;
   show('play'); state = 'play';
   audio.music(def.music);
@@ -316,9 +333,14 @@ function respawn() {
   run.invuln = 1.5;
 }
 
+// coins picked up on a run you leave early are kept — the same rule as a game over
+function bankRun() {
+  if (!run || run.banked) return;
+  run.banked = true; profile.coins += run.coins; save();
+}
 function gameOver() {
   state = 'over';
-  profile.coins += run.coins; save();
+  bankRun();
   audio.sfx('gameover'); audio.duck(true);
   $('#over').hidden = false;
 }
@@ -332,7 +354,7 @@ function finishLevel() {
   const bonus = run.def.bonus, earned = Math.round((run.coins + bonus) * d.coinMult);
   const rec = profile.levels[run.def.id] || {};
   profile.levels[run.def.id] = { done: true, stars: Math.max(rec.stars || 0, stars), best: Math.max(rec.best || 0, run.coins) };
-  profile.coins += earned; save();
+  run.banked = true; profile.coins += earned; save();
   audio.sfx('complete'); audio.duck(true);
   $('#complete-title').textContent = run.def.name;
   $('#complete-stars').innerHTML = [0, 1, 2].map(k => `<span class="${k < stars ? 'on' : 'off'}">★</span>`).join('');
@@ -351,9 +373,9 @@ $$('[data-act]').forEach(b => b.addEventListener('click', () => {
   audio.sfx('click');
   const a = b.dataset.act;
   $$('.modal').forEach(m => (m.hidden = true)); audio.duck(false);
-  if (a === 'resume') { state = 'play'; }
-  else if (a === 'restart') startLevel(run.index);
-  else if (a === 'quit' || a === 'route') { show('levels'); }
+  if (a === 'resume') { state = 'play'; clearEdges(); }
+  else if (a === 'restart') { bankRun(); startLevel(run.index); }
+  else if (a === 'quit' || a === 'route') { bankRun(); show('levels'); }
   else if (a === 'shop') { show('shop'); }
   else if (a === 'next') { if (run.index === LEVELS.length - 1) show('ending'); else startLevel(run.index + 1); }
 }));
@@ -363,7 +385,7 @@ function pause(on) {
 }
 
 // ------------------------------------------------------------------ code gates
-let quizTimer = null;
+let quizTimer = null, quizOpened = 0;
 function openGate(gate) {
   const topic = gate.topic;
   if (profile.skills[topic]) {
@@ -396,7 +418,7 @@ function openGate(gate) {
     const b = document.createElement('button');
     b.innerHTML = `<span class="k">${n + 1}</span>${q.o[i].replace(/</g, '&lt;')}`;
     if (struck.includes(i)) b.classList.add('gone');
-    b.addEventListener('click', () => answer(i === q.a, b, gate));
+    b.addEventListener('click', () => { if (performance.now() - quizOpened > 350 && !b.disabled) answer(i === q.a, b, gate); });
     box.appendChild(b);
   });
   if (useHint) feedback('Stack Overflow hint used: wrong answers struck out.', '');
@@ -410,7 +432,7 @@ function openGate(gate) {
       if (left <= 0) { clearInterval(quizTimer); answer(false, null, gate, true); }
     }, 1000);
   }
-  $('#quiz').hidden = false;
+  $('#quiz').hidden = false; quizOpened = performance.now();
   box.querySelector('button:not(.gone)')?.focus();
 }
 function feedback(text, cls) { const f = $('#quiz-feedback'); f.textContent = text; f.className = `feedback ${cls}`; }
@@ -429,7 +451,7 @@ function answer(ok, btn, gate, timeout = false) {
     $('#quiz-feedback').after(p);
     setTimeout(() => {
       p.remove(); $('#quiz').hidden = true; audio.duck(false);
-      gate.openGate(game); audio.sfx('gate'); state = 'play'; hud();
+      gate.openGate(game); audio.sfx('gate'); state = 'play'; clearEdges(); hud();
       if (gate.power) toast(`${SKILLS[topic].power} unlocked`, SKILLS[topic].key);
       else toast('Gate compiled', `you learned ${TOPICS[topic]}`);
       bursts.emit(gate.obj.position.x, gate.obj.position.y + 1.5, '#4ff0c8', 30, 6, 3);
@@ -437,12 +459,12 @@ function answer(ok, btn, gate, timeout = false) {
     return;
   }
   audio.sfx('wrong');
-  if (btn) { btn.classList.add('wrong'); setTimeout(() => btn.classList.add('gone'), 350); }
+  if (btn) { btn.disabled = true; btn.classList.add('wrong'); setTimeout(() => btn.classList.add('gone'), 350); }
   if (d.wrongCostsLife) {
     run.hearts--; run.lost++; hud();
     if (run.hearts <= 0) { clearInterval(quizTimer); $('#quiz').hidden = true; gameOver(); return; }
     feedback(timeout ? `⏱ Time's up — that cost a heart. ${run.hearts} left.` : `✗ Bug! That cost a heart. ${run.hearts} left.`, 'bad');
-    if (timeout) { $('#quiz').hidden = true; state = 'play'; audio.duck(false); run.body.vx = -8; run.body.x -= 1.5; }
+    if (timeout) { $('#quiz').hidden = true; state = 'play'; clearEdges(); audio.duck(false); run.body.vx = -8; run.body.x -= 1.5; }
   } else feedback('✗ Not quite — read the code again and try another answer.', 'bad');
 }
 
@@ -509,6 +531,7 @@ function frame() {
 
 const STEP = 1 / 120;
 let acc = 0;
+function clearEdges() { for (const k in edges) edges[k] = false; }
 function tick(dt) {
   const b = run.body;
   run.time += dt;
@@ -520,7 +543,8 @@ function tick(dt) {
   }
   const skills = { double: !!profile.skills.loop, dash: !!profile.skills.function, glide: !!profile.skills.async };
   acc += dt;
-  let jp = edges.jump, dp = edges.dash, jumpFx = null; edges.jump = edges.dash = false;
+  let jp = edges.jump, dp = edges.dash, jumpFx = null;
+  if (acc >= STEP) edges.jump = edges.dash = false;
   while (acc >= STEP) {
     acc -= STEP;
     b.jumped = null;
@@ -532,6 +556,9 @@ function tick(dt) {
     if (b.bumped) {
       const blk = run.blocks.find(k => k.x === b.bumped.x && k.y === b.bumped.y);
       if (blk) blk.hit(game); else audio.sfx('bump');
+      for (const en of run.ents) {
+        if (en.alive && en.box && en.dashable && Math.abs(en.box.x - (b.bumped.x + 0.5)) < 0.9 && Math.abs(en.box.y - (b.bumped.y + 1)) < 0.35) kill(en, 'bump');
+      }
     }
     jp = dp = false;
   }

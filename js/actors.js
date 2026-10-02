@@ -206,11 +206,11 @@ const FACTORY = {
         this.obj.rotation.y = t * 3 + this.seed;
         this.obj.position.y = e.y + Math.sin(t * 2.5 + this.seed) * 0.08;
         const pb = g.body;
-        if (g.magnet) {
+        if (g.magnet && !g.dead) {
           const dx = pb.x - this.obj.position.x, dy = pb.y + 0.7 - this.obj.position.y, d = Math.hypot(dx, dy);
           if (d < 5 && d > 0.01) { this.obj.position.x += dx / d * dt * 12; e.y += dy / d * dt * 12; this.box.x = this.obj.position.x; this.box.y = e.y - 0.35; }
         }
-        if (aabb(pb, this.box)) { this.alive = false; g.collectCoin(this.obj.position.x, this.obj.position.y); }
+        if (!g.dead && aabb(pb, this.box)) { this.alive = false; g.collectCoin(this.obj.position.x, this.obj.position.y); }
       },
     };
   },
@@ -314,8 +314,13 @@ const FACTORY = {
           this.x += this.sliding * 10 * dt;
           const ahead = Math.floor(this.x + Math.sign(this.sliding) * 0.5), at = Math.floor(this.y + 0.3);
           if (isSolid(cellAt(g, ahead, at))) this.sliding *= -1;
-          // fall into pits
-          if (!isSolid(cellAt(g, Math.floor(this.x), Math.floor(this.y - 0.1)))) { this.vy -= 30 * dt; this.y += this.vy * dt; if (this.y < -3) { this.alive = false; this.obj.visible = false; } }
+          // fall into pits, land on lower ground
+          if (!isSolid(cellAt(g, Math.floor(this.x), Math.floor(this.y - 0.05)))) {
+            this.vy -= 30 * dt; this.y += this.vy * dt;
+            if (isSolid(cellAt(g, Math.floor(this.x), Math.floor(this.y)))) { this.y = Math.floor(this.y) + 1; this.vy = 0; }
+          }
+          // a shell that leaves the screen is gone for good (it used to clear enemies across the whole level)
+          if (this.y < -3 || Math.abs(this.x - b.x) > 24) { this.alive = false; this.squish = 1; this.obj.visible = false; this.sliding = 0; return; }
           g.shellHits(this);
           this.obj.rotation.z += this.sliding * dt * 12;
         } else if (this.kickCool === 0 && aabb(b, this.box) && b.vy >= -0.5) {
@@ -324,7 +329,8 @@ const FACTORY = {
         this.obj.position.set(this.x, this.y, 0);
         if (!this.sliding) this.obj.rotation.y = this.dir > 0 ? -0.4 : Math.PI + 0.4;
         this.box.x = this.x; this.box.y = this.y;
-        if (!this.shell || this.sliding) g.touchEnemy(this);
+        // the player who just kicked it gets a moment to get clear
+        if (!this.shell || (this.sliding && this.kickCool === 0)) g.touchEnemy(this);
         else if (aabb(b, this.box) && b.vy < -1 && b.y > this.y + 0.4) { this.sliding = b.x < this.x ? 1 : -1; b.vy = 9; g.sfx('stomp'); }
       },
     };
@@ -478,7 +484,7 @@ export function makeHeart(x, y) {
     update(dt, t, g) {
       if (!this.alive) { this.obj.scale.multiplyScalar(1 - dt * 6); if (this.obj.scale.x < 0.05) this.obj.visible = false; return; }
       this.obj.rotation.y = t * 2; this.obj.position.y = y + Math.sin(t * 3) * 0.1;
-      if (aabb(g.body, this.box)) { this.alive = false; g.gainHeart(); }
+      if (!g.dead && aabb(g.body, this.box)) { this.alive = false; g.gainHeart(); }
     },
   };
 }

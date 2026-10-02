@@ -128,15 +128,15 @@ export function buildLevel(def, difficulty = 1) {
     pyramid() {
       // cube staircase up, a flat top, a gap, and stairs back down
       const k = ri(3, 4), x0 = x;
-      groundRun(2 + k * 2 + 3 + ri(0, 1));
+      const g = ri(0, 1) ? 0 : Math.min(3, maxGap());
+      groundRun(1 + k + 2 + g + k + 2 + ri(0, 1));          // room for both stairs and the gap, so nothing spills into the next chunk
       for (let i = 0; i < k; i++) B.bricks(x0 + 1 + i, h, 1, i + 1);
       for (let i = 0; i < 2; i++) B.bricks(x0 + 1 + k + i, h, 1, k);
-      const g = ri(0, 1) ? 0 : Math.min(3, maxGap());
       for (let i = 0; i < k; i++) B.bricks(x0 + 1 + k + 2 + g + i, h, 1, k - i);
       // the gap between the two halves is a real pit through the ground
       if (g) for (let i = 0; i < g; i++) for (let y = 0; y < h; y++) B.set(x0 + 1 + k + 2 + i, y, th.pit === 'lava' && y === 0 ? T.HAZARD : T.EMPTY);
       B.coins(x0 + 1 + k, h + k + 1, 2);
-      if (D.enemies > 1) walker(x0 + k * 2 + 4, h, 1);
+      if (D.enemies > 1) walker(x - 2, h, 1);               // on the flat after the stairs, never inside a cube
     },
     bridge() {
       // a wide pit crossed on floating cubes
@@ -281,7 +281,11 @@ export function buildLevel(def, difficulty = 1) {
     B.decor.push({ kind, x: dx, y: top, z: far ? -3.2 - r() * 2.5 : -1.4 - r() * 0.3, s: far ? 0.9 + r() * 0.4 : 0.8 + r() * 0.4, ry: r() * 0.6 - 0.3 });
   }
   if (def.theme === 'village' && th.flyer) {
-    for (let k = 1; k < 8; k++) { const ex = Math.floor((w / 8) * k); enemy({ type: th.flyer, x: ex + 0.5, y: 10, range: 3, axis: 'x' }, false); }
+    for (let k = 1; k < 8; k++) {
+      const ex = Math.floor((w / 8) * k);
+      let top = 0; for (let y = H - 1; y >= 0; y--) if (B.get(ex, y)) { top = y + 1; break; }
+      enemy({ type: th.flyer, x: ex + 0.5, y: Math.min(H - 3, Math.max(top, 3) + 4.5), range: 3, axis: 'x' }, false);   // above the local ground, not inside it
+    }
   }
   B.difficulty = difficulty;
   B.theme = th;
