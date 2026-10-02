@@ -209,8 +209,9 @@ export class World {
     }
     if (t.sea) {      // the open sea behind the beach, out to the horizon
       const mat = waterMaterial(0.35); this.shaders.push(mat);
-      const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 320), mat);
-      sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.35, -161.3); sea.userData.parallax = 1; s.add(sea); this.hillLayers.push(sea);
+      // from in front of the camera out to the horizon, so pits show sea, not sky, and the land rises out of the water
+      const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 345), mat);
+      sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.35, -152.5); sea.userData.parallax = 1; s.add(sea); this.hillLayers.push(sea);
     }
     if (t.ceiling) this.caveCeiling(length);
     if (t.skyline) this.skyline(length);
